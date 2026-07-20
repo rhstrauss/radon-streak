@@ -129,28 +129,34 @@ def atlas_panels():
     return out
 
 
-def fake_panels(n=4):
-    """Inject bright synthetic trails into the real G96 frame 0, re-difference,
-    detect+fit, and keep the ones cleanly recovered (validated fakes)."""
+def fake_panels(n=11):
+    """Inject synthetic trails (varied mag/length/PA/position) into the real G96
+    frame 0, re-difference, detect+fit, and keep the ones cleanly recovered
+    (validated fakes)."""
     sys.path.insert(0, os.path.join(ROOT, "bin"))
     from measure_efficiency import build_exp0
+    from streakradon.inject import random_positions
     import yaml
     cfg = yaml.safe_load(open(f"{ROOT}/config/g96.yaml"))
     stack = pickle.load(open(f"{ROOT}/work/g96_stack.pkl", "rb"))
     magzp = float(stack["headers"][0].get("MAGZP", 28.0)); psf = stack["psf_sigma"]
-    rng = np.random.default_rng(3)
-    specs = [(17.0, 55, 40.0), (17.5, 40, 70.0), (18.0, 70, 30.0), (17.0, 90, 120.0),
-             (18.0, 30, 55.0), (17.5, 25, 95.0)]
-    frame0 = stack["reg"][0].copy(); truths = []
-    for mag, Lpx, pa_deg in specs:
-        x = rng.uniform(1200, 4000); y = rng.uniform(1200, 4000)
-        inject_trail(frame0, x, y, np.radians(pa_deg), Lpx, mag, magzp, psf)
-        truths.append((x, y, np.radians(pa_deg), Lpx))
+    rng = np.random.default_rng(5)
+    ninj = int(n * 1.8) + 4  # over-inject; some won't cleanly recover
+    frame0 = stack["reg"][0].copy()
+    pos = random_positions(frame0.shape, stack["regm"][0], ninj, margin=280,
+                           min_sep=320, rng=rng)
+    truths = []
+    for (x, y) in pos:
+        mag = rng.uniform(17.0, 18.2)
+        Lpx = rng.uniform(28, 100)
+        pa = rng.uniform(0, np.pi)
+        inject_trail(frame0, x, y, pa, Lpx, mag, magzp, psf)
+        truths.append((x, y, pa, Lpx))
     st = dict(stack); st["reg"] = stack["reg"].copy(); st["reg"][0] = frame0
     e = build_exp0(st, cfg)
     out = []
     for (x, y, pa, Lpx) in truths:
-        HW = 130
+        HW = 150
         win = e.white[int(y) - HW:int(y) + HW, int(x) - HW:int(x) + HW]
         if win.shape != (2 * HW, 2 * HW):
             continue
@@ -224,11 +230,14 @@ def render(panels, out_path, ncol=None, randomize_pa=True, seed=17):
 def main():
     real = g96_panels() + ztf_panels() + atlas_panels()
     render(real, f"{ROOT}/work/mosaic_real.png", ncol=len(real))  # single row
-    fakes = fake_panels(4)
+    fakes = fake_panels(11)  # 5 real + 11 fakes = 16 -> 4x4
     print(f"validated fakes recovered: {len(fakes)}")
-    tot = real + fakes
-    render(tot, f"{ROOT}/work/mosaic_with_fakes.png",
-           ncol=int(np.ceil(len(tot) / 2)))  # two rows
+    tot = (real + fakes)[:16]
+    # interleave real + fakes so they're mixed across the grid
+    rng = np.random.default_rng(9)
+    order = rng.permutation(len(tot))
+    tot = [tot[i] for i in order]
+    render(tot, f"{ROOT}/work/mosaic_with_fakes.png", ncol=4)  # 4x4
 
 
 if __name__ == "__main__":
