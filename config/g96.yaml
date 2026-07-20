@@ -26,7 +26,10 @@ detect:
   overlap: 128
   min_length: 8
   frt_threshold: 5.0
-  mf_snr_min: 6.0            # provisional; frozen after injection calibration (P4)
+  mf_snr_min: 11.0          # FROZEN 2026-07 from negated-diff FP calibration: the
+                           # negated (source-free) G96 diff yields symmetric-artifact
+                           # FPs up to SNR 15.5 (5th-highest 11.2); mf_snr_min=11 ->
+                           # ~5 FP/frame before the repetition/dipole cuts.
 
 vet:
   len_min_arcsec: 6.0
