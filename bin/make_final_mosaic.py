@@ -178,7 +178,9 @@ def fake_panels(n=4):
     return out
 
 
-def render(panels, out_path, ncol=None):
+def render(panels, out_path, ncol=None, randomize_pa=True, seed=17):
+    from scipy.ndimage import rotate as ndrotate
+    rng = np.random.default_rng(seed)
     M = len(panels)
     if ncol is None:
         ncol = min(M, 4) if M > 4 else M
@@ -188,11 +190,26 @@ def render(panels, out_path, ncol=None):
     axes = np.atleast_1d(axes).ravel()
     for ax in axes:
         ax.axis("off")
+    # evenly-spread, shuffled rotation angles + jitter -> visually distinct
+    # orientations (uniform-random alone tends to cluster)
+    angles = (np.linspace(0, 360, M, endpoint=False)
+              + rng.uniform(-18, 18, M)) % 360
+    angles = rng.permutation(angles)
     for k, sub in enumerate(panels):
         ax = axes[k]
         g = np.isfinite(sub)
         m = np.median(sub[g]); s = 1.4826 * np.median(np.abs(sub[g] - m))
-        ax.imshow(np.where(g, sub, m), vmin=m - 2 * s, vmax=m + 8 * s,
+        img = np.where(g, sub, m)
+        if randomize_pa:
+            # rotate the (centred) streak -- purely for visualization, so the
+            # gallery shows varied trail orientations
+            ang = float(angles[k])
+            img = ndrotate(img, ang, reshape=False, order=1, mode="constant", cval=m)
+            # crop the inscribed square to drop the rotation corners
+            n = img.shape[0]; c = int(n * (1 - 1 / np.sqrt(2)) / 2)
+            if c > 0:
+                img = img[c:n - c, c:n - c]
+        ax.imshow(img, vmin=m - 2 * s, vmax=m + 8 * s,
                   cmap="gray_r", origin="lower", interpolation="nearest",
                   aspect="equal")
         ax.set_xticks([]); ax.set_yticks([])
