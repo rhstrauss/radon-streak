@@ -65,9 +65,9 @@ CONFIG_DIR = "/astro/store/shire/rstrau/catalina/config_files"
 # epochs; the point of this test is the linker's pair-consistency gate, not
 # sensitivity (that is measure_efficiency's job).
 MOVERS = [
-    (20.0, 45.0, 17.0),    # 25 px trail, unambiguous
-    (12.0, 160.0, 17.0),   # 15 px trail, near the short end
-    (50.0, 100.0, 17.0),   # 62 px trail, fast
+    (40.0, 45.0, 17.0),    # 49 px trail
+    (55.0, 160.0, 17.0),   # 68 px trail
+    (50.0, 100.0, 17.0),   # 62 px trail
 ]
 
 
@@ -89,8 +89,13 @@ def main():
         pa = np.radians(pa_deg)
         rate_px = rate * 3600.0 / pixscale          # px/day
         L_px = rate * 3600.0 / pixscale * exptime / 86400.0
-        x0 = rng.uniform(900, 4300)
-        y0 = rng.uniform(900, 4300)
+        # keep the whole 4-exposure track on-frame: total motion = rate_px * span
+        span_day = mjds[-1] - mjds[0]
+        travel = rate_px * span_day
+        cx = 2640.0 - 0.5 * travel * np.cos(pa)
+        cy = 2640.0 - 0.5 * travel * np.sin(pa)
+        x0 = float(np.clip(cx, 400, 4880))
+        y0 = float(np.clip(cy, 400, 4880))
         for i, mjd in enumerate(mjds):
             dt = mjd - mjds[0]
             x = x0 + rate_px * dt * np.cos(pa)

@@ -22,8 +22,14 @@ def inject_trail(img, x0, y0, pa_rad, L_px, mag, magzp, psf_sigma_px,
     A = flux / (2 * h * sigma * np.sqrt(2 * np.pi))
     r = int(np.ceil(h + 5 * sigma)) + 2
     x0i, y0i = int(round(x0)), int(round(y0))
-    sl = (slice(max(0, y0i - r), min(img.shape[0], y0i + r + 1)),
-          slice(max(0, x0i - r), min(img.shape[1], x0i + r + 1)))
+    y_lo, y_hi = max(0, y0i - r), min(img.shape[0], y0i + r + 1)
+    x_lo, x_hi = max(0, x0i - r), min(img.shape[1], x0i + r + 1)
+    if y_hi <= y_lo or x_hi <= x_lo:
+        # trail center is off-frame -> nothing to add
+        return dict(x=float(x0), y=float(y0), pa_rad=float(pa_rad), L_px=float(L_px),
+                    mag=float(mag), flux=float(10.0 ** (-0.4 * (mag - magzp))),
+                    A=float(A), sigma_px=float(sigma), offframe=True)
+    sl = (slice(y_lo, y_hi), slice(x_lo, x_hi))
     yy, xx = np.mgrid[sl[0], sl[1]].astype(float)
     add = _model([A, x0, y0, pa_rad, h, sigma, 0.0], xx, yy)
     if gain is not None:
