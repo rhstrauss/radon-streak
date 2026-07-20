@@ -6,8 +6,9 @@ exptime_s: 30.0
 pixscale_arcsec: 1.52
 image_variety: arch          # arch.fz: high-pass filtered, valid WCS (per A. Heinze)
 raw_variety: fits            # raw counts for saturation/variance
-mjd_is_shutter_open: null    # UNKNOWN -> mid_mjd = MJD + exptime/2 assumed w/ warning;
-                             # resolve empirically (Test v) then set true/false
+mjd_is_shutter_open: false   # RESOLVED 2026-07-19 (bin/infer_g96_timing.py): CSS's own
+                             # MPC-submitted epochs for these exposures match the header
+                             # MJD to +0.03s -> header MJD is already MID-exposure.
 
 preprocess:
   sat_margin_adu: 2000       # mask raw >= SATURATE - margin
