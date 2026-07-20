@@ -51,13 +51,28 @@ def cutout(diff, x, y, h_px):
 
 
 def g96_panels():
+    """The 2 genuine exp3 detections are the SAME physical streak (co-linear:
+    PA agree to 0.4 deg, perpendicular offset 0.6", and the 273" detection's
+    extent contains the 49" one). Merge them into the single JOINT trail (union
+    of the two extents along the common axis) and return one cutout of the full
+    streak."""
     exps = pickle.load(open(f"{ROOT}/work/g96_exps.pkl", "rb"))
     fbe = json.load(open(f"{ROOT}/work/g96_fits.json"))
-    out = []
-    for x, y in [(2448, 2085), (2398, 2067)]:  # the 2 genuine streaks (exp3)
-        f = min(fbe[3], key=lambda g: np.hypot(g["x"] - x, g["y"] - y))
-        out.append(cutout(exps[3].diff, f["x"], f["y"], f["h_px"]))
-    return out
+    f1 = min(fbe[3], key=lambda g: np.hypot(g["x"] - 2448, g["y"] - 2085))
+    f2 = min(fbe[3], key=lambda g: np.hypot(g["x"] - 2398, g["y"] - 2067))
+    # common axis = the longer detection's; project both endpoints onto it
+    th = f2["theta_px"]; ct, st = np.cos(th), np.sin(th)
+    ox, oy = f2["x"], f2["y"]
+    ends = []
+    for f in (f1, f2):
+        for sgn in (-1, 1):
+            ex, ey = f["x"] + sgn * f["h_px"] * np.cos(f["theta_px"]), \
+                     f["y"] + sgn * f["h_px"] * np.sin(f["theta_px"])
+            ends.append((ex - ox) * ct + (ey - oy) * st)
+    lo, hi = min(ends), max(ends)
+    h_joint = (hi - lo) / 2.0
+    cx, cy = ox + (lo + hi) / 2.0 * ct, oy + (lo + hi) / 2.0 * st
+    return [cutout(exps[3].diff, cx, cy, h_joint)]
 
 
 def ztf_panels():
@@ -191,11 +206,12 @@ def render(panels, out_path, ncol=None):
 
 def main():
     real = g96_panels() + ztf_panels() + atlas_panels()
-    render(real, f"{ROOT}/work/mosaic_real.png", ncol=3)
+    render(real, f"{ROOT}/work/mosaic_real.png", ncol=len(real))  # single row
     fakes = fake_panels(4)
     print(f"validated fakes recovered: {len(fakes)}")
-    render(real + fakes, f"{ROOT}/work/mosaic_with_fakes.png",
-           ncol=max(3, int(np.ceil(np.sqrt(len(real) + len(fakes))))))
+    tot = real + fakes
+    render(tot, f"{ROOT}/work/mosaic_with_fakes.png",
+           ncol=int(np.ceil(len(tot) / 2)))  # two rows
 
 
 if __name__ == "__main__":
