@@ -13,9 +13,9 @@ preprocess:
   sat_margin_adu: 2000       # mask raw >= SATURATE - margin
   sat_dilate_px: 5
   bleed_min_run_px: 10
-  bright_star_frac: 0.5      # mask halos for raw peaks > frac*SATURATE
-  halo_a_px: 8
-  halo_b_px: 12
+  bright_star_frac: 0.97     # halos only for truly saturated stars
+  halo_a_px: 6
+  halo_b_px: 2.5             # multiplies sqrt(saturated-blob area/pi)
   edge_px: 16
   register_check_px: 0.5     # abort if WCS vs phase-corr disagree by more
   var_grid_px: 128           # empirical local-variance grid

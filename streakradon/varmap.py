@@ -77,34 +77,54 @@ def saturation_masks(raw, saturate, margin=2000, dilate=5, bleed_min_run=10,
     if dilate > 0 and sat.any():
         sat = binary_dilation(sat, iterations=dilate)
     m[sat] = 1
-    # vertical bleed: columns with long saturated runs, extended 2x run length
+    # vertical bleed: CONTIGUOUS saturated runs, extended 2x run length
     satcol = raw >= (saturate - margin)
     for x in np.where(satcol.sum(axis=0) >= bleed_min_run)[0]:
-        col = satcol[:, x]
-        ys = np.where(col)[0]
-        if ys.size < bleed_min_run:
-            continue
-        run0, run1 = ys.min(), ys.max()
-        run_len = run1 - run0 + 1
-        lo = max(0, run0 - 2 * run_len)
-        hi = min(raw.shape[0], run1 + 2 * run_len)
-        m[lo:hi, max(0, x - 2):x + 3] = 2
-    # bright-star halos
-    bright = raw >= bright_frac * saturate
+        col = satcol[:, x].astype(np.int8)
+        d = np.diff(np.concatenate([[0], col, [0]]))
+        starts, ends = np.where(d == 1)[0], np.where(d == -1)[0]
+        for s, t in zip(starts, ends):
+            run_len = t - s
+            if run_len < bleed_min_run:
+                continue
+            lo = max(0, s - 2 * run_len)
+            hi = min(raw.shape[0], t + 2 * run_len)
+            m[lo:hi, max(0, x - 2):x + 3] = 2
+    # halos ONLY for truly saturated stars (footprint masking of ordinary stars
+    # happens against the template in star_footprint_mask -- circular halos on
+    # every bright-ish star over-masked ~15% of the frame)
+    bright = raw >= 0.97 * saturate
     if bright.any():
         from scipy.ndimage import label, center_of_mass, maximum
         lab, n = label(bright)
         if n:
             peaks = maximum(raw, lab, index=np.arange(1, n + 1))
             coms = center_of_mass(bright, lab, index=np.arange(1, n + 1))
-            yy, xx = np.mgrid[0:raw.shape[0], 0:raw.shape[1]]
-            for (cy, cx), pk in zip(coms, peaks):
-                r = halo_a + halo_b * max(np.log10(max(pk, 10.0)) - 3.0, 0.0)
+            npix = np.bincount(lab.ravel())[1:]
+            for (cy, cx), pk, npx in zip(np.atleast_2d(coms), np.atleast_1d(peaks),
+                                         npix):
+                r = halo_a + halo_b * np.sqrt(npx / np.pi)
                 sl = (slice(max(0, int(cy - r)), min(raw.shape[0], int(cy + r + 1))),
                       slice(max(0, int(cx - r)), min(raw.shape[1], int(cx + r + 1))))
-                d2 = (yy[sl] - cy) ** 2 + (xx[sl] - cx) ** 2
+                yy, xx = np.mgrid[sl]
+                d2 = (yy - cy) ** 2 + (xx - cx) ** 2
                 m[sl][d2 <= r * r] = np.maximum(m[sl][d2 <= r * r], 3)
     return m
+
+
+def star_footprint_mask(template, nsigma=6.0, dilate=2):
+    """Mask the static-source footprints using the (mover-free) template: pixels
+    with significant template flux leave subtraction residuals in the diff --
+    89% of >5-sigma whitened outliers sit on these footprints while they cover
+    <1% of a G96 frame. A trail crossing a star loses those pixels anyway (the
+    fit uses the mask); the rest of the trail survives."""
+    fin = template[np.isfinite(template)]
+    sky = np.median(fin)
+    noise = 1.4826 * np.median(np.abs(fin - sky))
+    fp = np.where(np.isfinite(template), template, np.inf) > sky + nsigma * noise
+    if dilate > 0:
+        fp = binary_dilation(fp, iterations=dilate)
+    return fp.astype(np.uint8)
 
 
 def edge_mask(shape, edge=16):
