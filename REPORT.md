@@ -96,6 +96,19 @@ trails:
 | 18 | 0.00 | 1.00 | 0.20 | 0.00 |
 | ≥19 | 0.00 | 0.00 | 0.00 | 0.00 |
 
+**Empirical-PSF injection (2026-07, refinement).** The G96 arch PSF is compact
+and undersampled (FWHM ~2.5 px) and, checked against field stars, is NOT strongly
+high-pass filtered (no negative moat) but is more peaked than a sigma=1.05 px
+Gaussian. Injecting with an analytic Gaussian therefore made fakes slightly
+broader than real sources, *under*-stating completeness. Re-ran the grid with an
+EMPIRICAL kernel (`psf.measure_psf_stamp`: sub-pixel-registered median star
+stack; `inject.inject_trail_empirical`: line (x) empirical PSF): recovery rose
+20/150 -> 27/150, with mag17 L40/L100 0.80->1.00 and mag18 L70 0.20->1.00;
+accuracy tightened (center RMS 1.9 px, length 0.9%, PA 0.14 deg). So the pipeline
+is somewhat MORE complete in its bright/medium-long operating regime than the
+Gaussian grid implied; the faint (mag>=19) / short (L<=10 px) cells remain 0
+(genuine threshold + short-trail limits, unchanged).
+
 **FP floor (negated-diff calibration):** the source-free (negated) G96 diff yields 16
 symmetric-artifact FPs at threshold 6, with the 5th-highest at SNR 11.2 → `mf_snr_min=11`
 gives ≲5 FP/frame before the repetition + dipole cuts. This high threshold is what caps
