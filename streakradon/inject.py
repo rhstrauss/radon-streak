@@ -41,6 +41,52 @@ def inject_trail(img, x0, y0, pa_rad, L_px, mag, magzp, psf_sigma_px,
                 mag=float(mag), flux=float(flux), A=float(A), sigma_px=float(sigma))
 
 
+def inject_trail_empirical(img, x0, y0, pa_rad, L_px, mag, magzp, psf_stamp,
+                           gain=None, rng=None, oversample=5):
+    """Add a synthetic trail built by convolving a uniform line source (length
+    L_px, angle pa_rad, total flux from mag/magzp) with the EMPIRICAL PSF stamp
+    (sum-normalized kernel from psf.measure_psf_stamp) -- reproduces the real
+    (compact, undersampled, non-Gaussian) source profile instead of an analytic
+    Gaussian. Returns a truth dict."""
+    from scipy.signal import fftconvolve
+    flux = 10.0 ** (-0.4 * (mag - magzp))
+    kh = psf_stamp.shape[0] // 2
+    h = L_px / 2.0
+    pad = int(np.ceil(h)) + kh + 3
+    n = 2 * pad + 1
+    line = np.zeros((n, n))
+    # lay the line's flux down as oversampled points about the canvas centre,
+    # with the sub-pixel offset of (x0,y0) folded in
+    x0i, y0i = int(round(x0)), int(round(y0))
+    fx, fy = x0 - x0i, y0 - y0i
+    ct, st = np.cos(pa_rad), np.sin(pa_rad)
+    npts = max(int(np.ceil(L_px * oversample)), 2)
+    tt = np.linspace(-h, h, npts)
+    wper = flux / npts
+    for t in tt:
+        px = pad + fx + t * ct
+        py = pad + fy + t * st
+        ix, iy = int(np.floor(px)), int(np.floor(py))
+        dx, dy = px - ix, py - iy
+        if 0 <= iy < n - 1 and 0 <= ix < n - 1:      # bilinear splat
+            line[iy, ix] += wper * (1 - dx) * (1 - dy)
+            line[iy, ix + 1] += wper * dx * (1 - dy)
+            line[iy + 1, ix] += wper * (1 - dx) * dy
+            line[iy + 1, ix + 1] += wper * dx * dy
+    stamp = fftconvolve(line, psf_stamp, mode="same")
+    if gain is not None:
+        rng = rng or np.random.default_rng()
+        stamp = rng.poisson(np.clip(stamp * gain, 0, None)) / gain
+    y0c, y1c = y0i - pad, y0i + pad + 1
+    x0c, x1c = x0i - pad, x0i + pad + 1
+    ys, ye = max(0, y0c), min(img.shape[0], y1c)
+    xs, xe = max(0, x0c), min(img.shape[1], x1c)
+    if ye > ys and xe > xs:
+        img[ys:ye, xs:xe] += stamp[ys - y0c:ye - y0c, xs - x0c:xe - x0c]
+    return dict(x=float(x0), y=float(y0), pa_rad=float(pa_rad), L_px=float(L_px),
+                mag=float(mag), flux=float(flux), sigma_px=None, empirical=True)
+
+
 def sequence_positions(x0, y0, rate_px_per_day, pa_rad, mjds):
     """Linear-motion positions of a mover at each exposure epoch (relative to
     the first). Returns list of (x, y)."""

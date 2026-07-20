@@ -24,7 +24,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from streakradon.adapters.base import DiffExposure         # noqa: E402
-from streakradon.inject import inject_trail, random_positions  # noqa: E402
+from streakradon.inject import inject_trail, inject_trail_empirical, random_positions  # noqa: E402
+from streakradon.psf import measure_psf_stamp                  # noqa: E402
 from streakradon.pipeline import process_exposure          # noqa: E402
 from streakradon.varmap import whiten                      # noqa: E402
 from streakradon.template import loo_diffs                 # noqa: E402
@@ -145,6 +146,15 @@ def main():
     from streakradon import rb
     from streakradon.pipeline import rb_config
     rbc = rb_config(cfg)
+    # empirical PSF kernel from the registered frame-0 stars (all-positive,
+    # undersampled real profile) -> inject trails by convolving a line with it
+    psf_stamp = measure_psf_stamp(stack["reg"][0], stack["regm"][0])
+    magzp0 = float(stack["headers"][0].get("MAGZP", 28.0))
+    if psf_stamp is not None:
+        print(f"empirical PSF kernel {psf_stamp.shape} (sum {psf_stamp.sum():.3f}); "
+              f"injecting empirically")
+    else:
+        print("WARNING: empirical PSF stamp failed; falling back to Gaussian injection")
     for r in range(n_round):
         batch = todo[r * args.per_round:(r + 1) * args.per_round]
         if not batch:
@@ -155,9 +165,10 @@ def main():
         truths = []
         for (m, L), (x, y) in zip(batch, pos):
             pa = rng.uniform(0, np.pi)
-            tr = inject_trail(frame0, x, y, pa, L, m,
-                              float(stack["headers"][0].get("MAGZP", 28.0)),
-                              stack["psf_sigma"])
+            if psf_stamp is not None:
+                tr = inject_trail_empirical(frame0, x, y, pa, L, m, magzp0, psf_stamp)
+            else:
+                tr = inject_trail(frame0, x, y, pa, L, m, magzp0, stack["psf_sigma"])
             truths.append(tr)
         t0 = time.time()
         e = build_exp0(stack, cfg, frame0=frame0)

@@ -71,3 +71,54 @@ def measure_psf_sigma(img, mask=None, nstars=150, thresh_sigma=20.0,
         keep = np.abs(sigs - m) < 3 * max(s, 1e-3)
         sigs = sigs[keep]
     return float(np.median(sigs)), int(sigs.size)
+
+
+def measure_psf_stamp(img, mask=None, nstars=120, thresh_sigma=25.0, hw=9,
+                      upsample=4, lo=800.0, hi=20000.0):
+    """Empirical PSF kernel: sub-pixel-registered, background-subtracted median
+    stack of isolated moderate-brightness stars, normalized to sum=1. Captures
+    the real (compact, undersampled, all-positive, possibly non-Gaussian) source
+    profile so injected trails match real sources exactly. Returns the (2hw+1,
+    2hw+1) kernel (or None)."""
+    from scipy.ndimage import maximum_filter, shift as ndshift
+    good = np.isfinite(img)
+    if mask is not None:
+        good &= (mask == 0)
+    med = np.median(img[good]); mad = 1.4826 * np.median(np.abs(img[good] - med))
+    mx = maximum_filter(np.where(good, img, -np.inf), size=2 * hw + 5)
+    peaks = (img == mx) & good & (img > med + thresh_sigma * mad) & (img < med + hi)
+    peaks[:hw + 2, :] = peaks[-hw - 2:, :] = False
+    peaks[:, :hw + 2] = peaks[:, -hw - 2:] = False
+    ys, xs = np.where(peaks)
+    order = np.argsort(img[ys, xs])[::-1]
+    ys, xs = ys[order], xs[order]
+    yy, xx = np.mgrid[-hw:hw + 1, -hw:hw + 1].astype(float)
+    stacks = []
+    for y, x in zip(ys, xs):
+        st = img[y - hw:y + hw + 1, x - hw:x + hw + 1].astype(float)
+        if st.shape != (2 * hw + 1, 2 * hw + 1) or not np.isfinite(st).all():
+            continue
+        if mask is not None and (mask[y - hw:y + hw + 1, x - hw:x + hw + 1] != 0).any():
+            continue
+        st = st - med
+        pk = st.max()
+        if pk < lo or pk > hi:
+            continue
+        w = np.clip(st, 0, None); tot = w.sum()
+        if tot <= 0:
+            continue
+        cx = (w * xx).sum() / tot; cy = (w * yy).sum() / tot
+        if abs(cx) > 2 or abs(cy) > 2:
+            continue
+        st = ndshift(st, (-cy, -cx), order=1, mode="constant", cval=0.0)  # recenter
+        s = st.sum()
+        if s > 0:
+            stacks.append(st / s)
+        if len(stacks) >= nstars:
+            break
+    if len(stacks) < 10:
+        return None
+    ker = np.median(np.array(stacks), axis=0)
+    ker = np.clip(ker, 0, None)          # enforce non-negative (no moat here anyway)
+    ker /= ker.sum()
+    return ker
