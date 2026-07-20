@@ -52,46 +52,39 @@ def mf_snr_at(img, x, y, L, pa_rad, sigma, noise=1.0, mask=None):
     return float((sub * kk).sum() / (noise * np.sqrt((k ** 2).sum())))
 
 
-def refine_length(img, x, y, pa_rad, sigma, L_max=220, thresh=2.0, mask=None):
-    """Re-estimate trail length from the along-line profile (counters FRT
-    over-integration). Projects a corridor of half-width 2*sigma onto the line
-    axis and measures the contiguous extent above `thresh` (per-column SNR of
-    the cross-track-summed profile, noise ~ sqrt(n_cross) for whitened input).
+LENGTH_LADDER = (6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192)
 
-    Returns (L_est_px, x_c, y_c) -- length and flux-weighted center along the line.
+
+def refine_candidate(img, x, y, pa_rad, sigma, mask=None,
+                     lengths=LENGTH_LADDER, dpa_deg=8.0, dpa_step_deg=2.0,
+                     slide_frac=0.35, n_slide=7):
+    """Refine an FRT candidate by maximizing the integrated MF SNR over a small
+    grid of (PA, length, center-slide-along-line).
+
+    The FRT's PA is quantized (a few deg off decorrelates a long thin template:
+    at L=66 px, sigma=0.9 px, a 5 deg error displaces the endpoints ~3 sigma
+    cross-track) and its length over/under-integrates on the power-of-2 folding
+    ladder -- so both must be re-fit against the statistic that matters.
+
+    Returns dict(snr, L, pa_rad, x, y).
     """
-    r = int(L_max // 2)
-    ct, st = np.cos(pa_rad), np.sin(pa_rad)
-    tt = np.arange(-r, r + 1, dtype=float)
-    wperp = np.arange(-int(np.ceil(2 * sigma)), int(np.ceil(2 * sigma)) + 1, dtype=float)
-    prof = np.zeros(tt.size)
-    nn = np.zeros(tt.size)
-    h_img, w_img = img.shape
-    for w in wperp:
-        xs = np.round(x + tt * ct - w * st).astype(int)
-        ys = np.round(y + tt * st + w * ct).astype(int)
-        ok = (xs >= 0) & (xs < w_img) & (ys >= 0) & (ys < h_img)
-        vals = np.zeros(tt.size)
-        vals[ok] = img[ys[ok], xs[ok]]
-        good = ok & np.isfinite(vals)
-        if mask is not None:
-            good[ok] &= (mask[ys[ok], xs[ok]] == 0)
-        vals[~good] = 0.0
-        prof += vals
-        nn += good
-    snr_prof = prof / np.sqrt(np.maximum(nn, 1))
-    above = snr_prof > thresh
-    if not above.any():
-        return 0.0, x, y
-    # contiguous run containing (or nearest) the center
-    idx = np.where(above)[0]
-    # split runs
-    splits = np.where(np.diff(idx) > 3)[0]
-    runs = np.split(idx, splits + 1)
-    c = tt.size // 2
-    run = min(runs, key=lambda rr: min(abs(rr - c)))
-    t_lo, t_hi = tt[run[0]], tt[run[-1]]
-    L_est = float(t_hi - t_lo + 1)
-    wts = np.clip(snr_prof[run], 0, None)
-    t_c = float(np.average(tt[run], weights=wts)) if wts.sum() > 0 else 0.0
-    return L_est, x + t_c * ct, y + t_c * st
+    pas = pa_rad + np.radians(np.arange(-dpa_deg, dpa_deg + 0.01, dpa_step_deg))
+    best = dict(snr=-np.inf, L=lengths[0], pa_rad=pa_rad, x=x, y=y)
+    for L in lengths:
+        slides = np.linspace(-slide_frac * L, slide_frac * L, n_slide)
+        for pa in pas:
+            ct, st = np.cos(pa), np.sin(pa)
+            for s in slides:
+                xs, ys = x + s * ct, y + s * st
+                snr = mf_snr_at(img, xs, ys, L, pa, sigma, noise=1.0, mask=mask)
+                if snr > best['snr']:
+                    best = dict(snr=float(snr), L=float(L), pa_rad=float(pa % np.pi),
+                                x=float(xs), y=float(ys))
+    # local center polish at the best (L, pa): +-2 px perpendicular
+    ct, st = np.cos(best['pa_rad']), np.sin(best['pa_rad'])
+    for w in (-2, -1, 1, 2):
+        xs, ys = best['x'] - w * st, best['y'] + w * ct
+        snr = mf_snr_at(img, xs, ys, best['L'], best['pa_rad'], sigma, mask=mask)
+        if snr > best['snr']:
+            best.update(snr=float(snr), x=float(xs), y=float(ys))
+    return best
