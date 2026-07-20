@@ -1,0 +1,22 @@
+# ZTF adapter parameters (diff images from IRSA: scimrefdiffimg + mskimg)
+survey: ztf
+obscode: I41
+pixscale_arcsec: 1.012
+exptime_s: 30.0
+timing: shutter_midpoint     # (SHUTOPEN+SHUTCLSD)/2 from science header -- validated
+                             # convention (find_orb residual 0.89" -> 0.27")
+
+detect:
+  tile: 1024
+  overlap: 128
+  min_length: 8
+  frt_threshold: 5.0
+  mf_snr_min: 6.0
+
+vet:
+  axis_blanket: true         # ZTF diffs ARE detector-artifact dominated (validated cut)
+  len_min_arcsec: 8.0
+  len_max_arcsec: 300.0
+  chi2r_lo: 0.3
+  chi2r_hi: 3.0
+  sig_along_max_arcsec: 3.0
