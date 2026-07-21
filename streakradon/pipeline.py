@@ -37,6 +37,7 @@ def rb_config(cfg):
         edge_px=vet.get("edge_px", 30),
         repeat_rad_arcsec=vet.get("repeat_rad_arcsec", 5.0),
         repeat_pa_deg=vet.get("repeat_pa_deg", 10.0),
+        axis_blanket=vet.get("axis_blanket", None),
     )
 
 

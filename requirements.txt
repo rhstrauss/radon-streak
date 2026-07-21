@@ -1,0 +1,7 @@
+# Runtime dependencies for streak_radon. Loose lower bounds -- validated on the
+# far newer numpy 2.4 / scipy 1.17 / astropy 7.2 (mpchecker conda env) as well.
+numpy>=1.21
+scipy>=1.7
+astropy>=5.0
+pyyaml>=5.3
+matplotlib>=3.4     # required at import time by the vendored pyradon Finder

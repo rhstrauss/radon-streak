@@ -5,3 +5,13 @@ work/
 *.fits
 *.fits.fz
 *.log
+
+# packaging / build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+
+# demo outputs
+demo_out/

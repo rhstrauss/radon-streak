@@ -57,8 +57,13 @@ def detect_in_window(e, x, y, cfg, hw=110):
     return best
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MTT = "/astro/store/shire/rstrau/heliolinx/bin/make_trailed_tracklets"
-CONFIG_DIR = "/astro/store/shire/rstrau/catalina/config_files"
+# Machine-specific paths (arnor defaults); override via environment on any host.
+MTT = os.environ.get("MAKE_TRAILED_TRACKLETS",
+                     "/astro/store/shire/rstrau/heliolinx/bin/make_trailed_tracklets")
+CONFIG_DIR = os.environ.get("HELIO_CONFIG_DIR",
+                            "/astro/store/shire/rstrau/catalina/config_files")
+EARTH = os.environ.get("HELIO_EARTH", os.path.join(CONFIG_DIR, "Earth1day2020s_02a.csv"))
+OBSCODES = os.environ.get("HELIO_OBSCODES", os.path.join(CONFIG_DIR, "ObsCodes.html"))
 
 # injected movers: (rate deg/day, pa deg, mag) -- rates span the trailed regime.
 # Bright enough (mag ~17) to clear the frozen mf_snr_min=11 threshold at all four
@@ -139,8 +144,8 @@ def main():
     out = os.path.join(ROOT, "work", "e2e")
     cmd = [MTT, "-dets", det_csv, "-imgs", img_txt,
            "-colformat", os.path.join(ROOT, "config", "hldet_colformat01.txt"),
-           "-earth", os.path.join(CONFIG_DIR, "Earth1day2020s_02a.csv"),
-           "-obscode", os.path.join(CONFIG_DIR, "ObsCodes.html"),
+           "-earth", EARTH,
+           "-obscode", OBSCODES,
            "-exptime", str(exptime), "-maxvel", "100.0", "-imrad", "2.0",
            "-maxGCR", "3.0", "-mintrkpts", "2",
            "-siglenscale", "0.5", "-sigpascale", "10.0",

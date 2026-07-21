@@ -34,17 +34,26 @@ def _near_axis(pa_deg, tol):
     return min(a, abs(a - 90.0), abs(a - 180.0)) < tol
 
 
+def _blanket_axis(cfg, survey):
+    """Whether to reject ALL near-detector-axis trails (not just those adjacent
+    to masked bleed/saturation). Config `vet.axis_blanket` wins when set; else
+    the historical per-survey default (ZTF diffs are detector-artifact dominated;
+    within-sequence CSS/generic diffs are not)."""
+    b = cfg.get('axis_blanket') if cfg else None
+    return (survey == 'ztf') if b is None else bool(b)
+
+
 def prefit_pass(cand, cfg=None, survey='g96'):
     """Cheap cuts needing only detector-stage info; run before the expensive fit.
 
     cand: dict with keys snr (integrated MF SNR), pa_px_deg, near_bad_col (bool,
-    optional; g96 only applies the axis cut when True).
+    optional; only used when the axis cut is conditional, not blanket).
     """
     c = {**DEFAULTS, **(cfg or {})}
     if cand['snr'] < c['mf_snr_min']:
         return False, "low_mf_snr"
     if _near_axis(cand['pa_px_deg'], c['axis_tol_deg']):
-        if survey == 'ztf' or cand.get('near_bad_col', False):
+        if _blanket_axis(cfg, survey) or cand.get('near_bad_col', False):
             return False, "detector_axis"
     return True, "ok"
 
@@ -55,7 +64,7 @@ def passes_rb(fit, cand, imshape=None, cfg=None, survey='g96'):
     if fit is None:
         return False, "fit_failed"
     if _near_axis(cand['pa_px_deg'], c['axis_tol_deg']):
-        if survey == 'ztf' or cand.get('near_bad_col', False):
+        if _blanket_axis(cfg, survey) or cand.get('near_bad_col', False):
             return False, "detector_axis"
     if not (c['len_min_arcsec'] <= fit['trail_len'] <= c['len_max_arcsec']):
         return False, "length_oob"

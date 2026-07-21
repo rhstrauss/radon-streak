@@ -1,0 +1,54 @@
+# Survey-agnostic template for an ALREADY-DIFFERENCED FITS image.
+#
+# Copy this file, edit the `header:` keyword map + `default:` fallbacks to match
+# your survey's difference-image headers, and run:
+#
+#   streak-radon detect --survey generic --config my_survey.yaml \
+#       --diff diff.fits [--mask mask.fits] --out trails.csv
+#
+# The detect/measure/vet/output stages are identical across surveys; only this
+# header map changes.
+survey: generic
+obscode: XXX                 # fallback if no obscode keyword in the header
+
+header:
+  # hdu: 0                   # image HDU (int index or EXTNAME); omit = first 2D HDU
+  mjd_key: [MJD-OBS, MJD, OBSMJD, DATE-OBS]   # first present wins
+  mjd_convention: start      # 'start' = shutter-open (mid = MJD + exptime/2); 'mid'
+  exptime_key: [EXPTIME, EXPOSURE, EXPTIMES]
+  magzp_key: [MAGZP, MAGZERO, ZP, ZPMAG]
+  psf_key: [FWHM, SEEING, PSF_FWHM]
+  psf_unit: fwhm_px          # fwhm_px | fwhm_arcsec | sigma_px | sigma_arcsec
+  obscode_key: [OBSCODE, OBS, TELID]
+  band_key: [FILTER, BAND, FILTERID]
+
+default:                     # used when a keyword is absent
+  exptime_s: 30.0
+  magzp: 26.0
+  psf_fwhm_px: 4.0
+  obscode: XXX
+  band: w
+
+preprocess:
+  bad_lo: -1.0e4             # mask pixels below this (subtraction bad regions); null to disable
+  var_grid_px: 128           # local-variance grid for whitening
+
+detect:
+  tile: 1024                 # FRT tile size (square); reduce for small frames
+  overlap: 128
+  min_length: 8              # physical minimum trail length (px); library default 32 is a trap
+  frt_threshold: 5.0         # permissive FRT candidate threshold (significance comes from mf_snr)
+  mf_snr_min: 8.0            # integrated matched-filter SNR floor -- TUNE PER SURVEY from a
+                             # negated-diff false-positive calibration (see REPORT.md; G96 uses 11)
+
+vet:
+  axis_blanket: false        # true -> reject ALL near-detector-axis (0/90 deg) trails
+                             # (set true only if your diffs are detector-artifact dominated, like ZTF)
+  len_min_arcsec: 6.0
+  len_max_arcsec: 300.0      # beyond this = satellite/aircraft (288 deg/day at 30 s)
+  chi2r_lo: 0.3
+  chi2r_hi: 3.0
+  sig_along_max_arcsec: 4.0
+  edge_px: 30
+  repeat_rad_arcsec: 5.0     # cross-exposure repetition test (only used by detect-sequence)
+  repeat_pa_deg: 10.0

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "streak-radon"
+version = "0.1.0"
+description = "FRT-based trailed-source (streak) detection for solar-system fast movers -> heliolinx make_trailed_tracklets"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Ryder H. Strauss" }]
+keywords = ["astronomy", "asteroids", "NEO", "streak-detection", "radon-transform", "heliolinx"]
+dependencies = [
+    "numpy>=1.21",
+    "scipy>=1.7",
+    "astropy>=5.0",
+    "pyyaml>=5.3",
+    "matplotlib>=3.4",   # required at import time by the vendored pyradon Finder; also QA plots
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+streak-radon = "streakradon.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/rhstrauss/streak_radon"
+
+# Install from a clone with `pip install -e .` (editable): the repo tree stays in
+# place, so (a) the vendored, pinned pyradon (GPLv3; vendor/pyradon) that
+# streakradon.import_pyradon adds to sys.path is found, and (b) the survey configs
+# under config/ resolve via streakradon.config (which locates them relative to the
+# package). config/, vendor/, tests/ ship in the sdist via MANIFEST.in. See PATCHES.md.
+[tool.setuptools]
+packages = ["streakradon", "streakradon.adapters"]

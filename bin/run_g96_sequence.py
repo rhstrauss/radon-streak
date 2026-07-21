@@ -23,17 +23,19 @@ from streakradon.adapters.g96 import prepare_sequence      # noqa: E402
 from streakradon.pipeline import process_exposure          # noqa: E402
 from streakradon import rb                                 # noqa: E402
 from streakradon.hldet_io import fit_to_row, write_hldet   # noqa: E402
+from streakradon.config import load_cfg as _load_cfg       # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_FRAMES = "/astro/store/shire/aheinze/Shared/G96_images/G96_20240501_2B_N25057_01_000?.arch.fz"
+# Example CSS sequence on arnor; override with --frames for any other machine.
+DEFAULT_FRAMES = os.environ.get(
+    "STREAKRADON_G96_FRAMES",
+    "/astro/store/shire/aheinze/Shared/G96_images/G96_20240501_2B_N25057_01_000?.arch.fz")
 
 
 def load_cfg():
-    try:
-        import yaml
-        return yaml.safe_load(open(os.path.join(ROOT, "config", "g96.yaml")))
-    except Exception:
-        return {}
+    # Loud loader (raises on missing PyYAML / config): the old silent fallback
+    # to {} reverted the frozen mf_snr_min=11 to the permissive default 6.
+    return _load_cfg("g96")
 
 
 def main():
