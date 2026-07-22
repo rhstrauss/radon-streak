@@ -26,7 +26,7 @@ dev = ["pytest>=7.0"]
 streak-radon = "streakradon.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/rhstrauss/streak_radon"
+Homepage = "https://github.com/rhstrauss/radon-streak"
 
 # Install from a clone with `pip install -e .` (editable): the repo tree stays in
 # place, so (a) the vendored, pinned pyradon (GPLv3; vendor/pyradon) that
