@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+        # NOTE: no submodules: true -- vendored pyradon must be committed as real
+        # files (it is). If this checkout ever yields an empty vendor/pyradon, the
+        # integration test below fails, which is the point.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install (editable, with deps)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Confirm vendored pyradon is present (guards the clone-blocker)
+        run: test -f vendor/pyradon/src/finder.py
+      - name: Smoke test (unit + integration/FRT)
+        run: streak-radon selftest

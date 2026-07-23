@@ -223,10 +223,23 @@ def _demo_link(det_csv, img_txt, out_dir, args):
 
 
 def cmd_selftest(args):
+    """Smoke test: first-party unit tests AND the integration test, which drives
+    the vendored pyradon FRT end-to-end (synthetic mover -> detection). The
+    integration test is what catches a broken clone (missing vendored pyradon):
+    unit tests alone pass even when pyradon is absent, so both must run."""
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     import subprocess
-    r = subprocess.run([sys.executable, os.path.join(here, "tests", "test_units.py")])
-    sys.exit(r.returncode)
+    suites = ["test_units.py", "test_integration.py"]
+    if getattr(args, "quick", False):
+        suites = ["test_units.py"]
+    rc = 0
+    for s in suites:
+        print(f"=== {s} ===")
+        r = subprocess.run([sys.executable, os.path.join(here, "tests", s)])
+        rc = rc or r.returncode
+    if rc == 0:
+        print("SELFTEST PASSED (units + integration/FRT)")
+    sys.exit(rc)
 
 
 # --------------------------------------------------------------------------- #
@@ -276,7 +289,9 @@ def build_parser():
     m.add_argument("--quiet", action="store_true")
     m.set_defaults(func=cmd_demo)
 
-    t = sub.add_parser("selftest", help="run unit tests")
+    t = sub.add_parser("selftest", help="run smoke tests (unit + integration/FRT)")
+    t.add_argument("--quick", action="store_true",
+                   help="unit tests only; skip the pyradon-FRT integration test")
     t.set_defaults(func=cmd_selftest)
     return p
 
