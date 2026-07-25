@@ -30,6 +30,17 @@ detect:
                            # negated (source-free) G96 diff yields symmetric-artifact
                            # FPs up to SNR 15.5 (5th-highest 11.2); mf_snr_min=11 ->
                            # ~5 FP/frame before the repetition/dipole cuts.
+  # --- survey-scale performance (Phase 1, 2026-07; see PATCHES.md) ---
+  fast_suppress: true      # geometric capsule instead of pyradon's 4x-oversampled
+                           # full-tile model+convolve for streak blanking. Same
+                           # footprint (validated: never under-masks), ~5.5x on
+                           # the detect stage. false = stock pyradon, for A/B.
+  fast: false              # true = SURVEY MODE: skip the per-candidate Veres LSQ
+                           # (~917 ms each) and emit the FRT+MF rough trail with
+                           # APPROXIMATE cross/along-track errors. Measured vs
+                           # truth: PA 0.47 deg, length 1.9% -- well inside
+                           # heliolinc's gates (siglenscale 0.5). Veres then runs
+                           # as a POST-LINKING refinement on linked detections.
 
 vet:
   len_min_arcsec: 6.0
