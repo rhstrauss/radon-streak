@@ -1,5 +1,4 @@
-include LICENSE
-include README.md REPORT.md PATCHES.md requirements.txt
+include LICENSE NOTICE LICENSING.md CITATION.cff
+include README.md REPORT.md requirements.txt
 recursive-include config *.yaml *.txt
-recursive-include vendor/pyradon *.py LICENSE README.md requirements.txt
 recursive-include tests *.py

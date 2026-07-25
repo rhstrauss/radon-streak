@@ -1,0 +1,50 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it and the algorithm references below."
+title: "streak_radon: FRT-based trailed-source detection for solar-system fast movers"
+authors:
+  - family-names: Strauss
+    given-names: Ryder H.
+    affiliation: University of Washington
+version: 0.1.0
+license: GPL-3.0-or-later
+repository-code: "https://github.com/rhstrauss/radon-streak"
+keywords:
+  - astronomy
+  - asteroids
+  - near-Earth objects
+  - streak detection
+  - Radon transform
+  - heliolinx
+references:
+  - type: article
+    authors:
+      - family-names: Nir
+        given-names: Guy
+      - family-names: Ofek
+        given-names: Eran O.
+      - family-names: Ben-Ami
+        given-names: Sagi
+      - family-names: Zackay
+        given-names: Barak
+    title: "Optimal and efficient streak detection in astronomical images"
+    journal: "The Astronomical Journal"
+    volume: 156
+    year: 2018
+    notes: "Fast Radon Transform streak-detection algorithm (independently reimplemented in streakradon/frt.py)."
+  - type: article
+    authors:
+      - family-names: Brady
+        given-names: Martin L.
+    title: "A fast discrete approximation algorithm for the Radon transform"
+    journal: "SIAM Journal on Computing"
+    volume: 27
+    year: 1998
+  - type: article
+    authors:
+      - family-names: "Vereš"
+        given-names: Peter
+    title: "Improved asteroid astrometry and photometry with trail fitting"
+    journal: "PASP"
+    volume: 124
+    year: 2012
+    notes: "Trailed-source forward-fit model used in streakradon/trail_fit.py."

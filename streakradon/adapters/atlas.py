@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """ATLAS adapter: forced-photometry-service difference/reduced stamps ->
 DiffExposure. The `_diff` stamps are ATLAS-native difference images with a valid
 WCS, MAGZP, FWHM/SEEING; extreme-negative pixels are masked (subtraction bad

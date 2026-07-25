@@ -9,12 +9,13 @@ ready for heliolinx [`make_trailed_tracklets`](https://github.com/lsst-dm/heliol
 
 It pairs a near-optimal blind detector with a validated forward-model measurer:
 
-> **FRT finds, Veres fit measures.** The Fast Radon Transform (pyradon; Nir &
-> Ofek 2018) scans every length and angle to *locate* candidate streaks; each
-> candidate is then re-measured by a Veres et al. (2012) line⊗Gaussian
-> forward-fit and re-scored with an integrated matched-filter SNR. The FRT is a
-> great *detector* but an unreliable *measurer* on real survey diffs — so we use
-> each stage for what it is good at.
+> **FRT finds, Veres fit measures.** Our own clean-room Fast Radon Transform
+> (`streakradon/frt.py`; algorithm of Nir & Ofek 2018, Brady 1998) scans every
+> length and angle to *locate* candidate streaks; each candidate is then
+> re-measured by a Veres et al. (2012) line⊗Gaussian forward-fit and re-scored
+> with an integrated matched-filter SNR. The FRT is a great *detector* but an
+> unreliable *measurer* on real survey diffs — so we use each stage for what it
+> is good at.
 
 Validated 2026-07 on ZTF ground-truth NEO **a000001** (recovered blind as the #1
 detection), real ATLAS difference stamps of **2024 KV**, and CSS/G96 imagery; its
@@ -25,14 +26,20 @@ numbers in [`REPORT.md`](REPORT.md).
 
 ## Install
 
-`streak_radon` vendors a pinned copy of the GPLv3 `pyradon` and drives it in
-place, so install from a clone in editable mode:
+The detector is our own clean-room Fast Radon Transform (`streakradon/frt.py`) —
+no third-party detection code is required at runtime. Install from a clone in
+editable mode (the survey configs under `config/` resolve relative to the repo):
 
 ```bash
 git clone <your-fork-url> streak_radon
 cd streak_radon
 pip install -e .            # numpy, scipy, astropy, pyyaml, matplotlib
 ```
+
+Licensing: GPL-3.0-or-later while the optional `vendor/pyradon` (GPLv3; Guy Nir)
+is present. It is retained only as an A/B backend (`detect.backend: pyradon`);
+the default `native` backend does not use it. See [`LICENSING.md`](LICENSING.md)
+and [`NOTICE`](NOTICE).
 
 That puts a `streak-radon` command on your PATH. No compiled extensions; pure
 Python. (Tested on numpy 1.24–2.4 / scipy 1.10–1.17 / astropy 6–7.)
@@ -195,7 +202,7 @@ See [`PATCHES.md`](PATCHES.md) for the pyradon gotchas and how each is handled
 ```
 difference image
   → whiten           (img - local_bg)/sqrt(var)   → unit-noise detection image
-  → FRT tiles        pyradon Finder on square tiles, min_length=8, permissive
+  → FRT tiles        native clean-room FRT on square tiles, min_length=8, permissive
   → dedup            union-find across overlapping tiles / foldings
   → MF grid-refine   maximize integrated matched-filter SNR over (PA, L, center)
   → Veres fit        line⊗Gaussian forward model → RA/Dec, mag, trail_len, PA, errors
@@ -214,7 +221,8 @@ took a000001 from FRT SNR 6.3 → 19.4 at the correct length.
 
 ```
 streakradon/            importable library (survey-agnostic core + adapters/)
-  frt_driver.py         drive vendored pyradon over a whole frame (tiling, dedup)
+  frt.py                clean-room Fast Radon Transform (detector; our own code)
+  frt_driver.py         run the FRT over a whole frame (tiling, dedup)
   mf_snr.py             integrated matched-filter SNR + grid re-measurement
   trail_fit.py          Veres line⊗Gaussian forward fit
   rb.py                 real/bogus vetting + cross-exposure repetition test
@@ -228,15 +236,15 @@ streakradon/            importable library (survey-agnostic core + adapters/)
   adapters/             generic, ztf, atlas, g96  → DiffExposure
 bin/                    validation / reproduce harnesses (regression, efficiency, e2e)
 config/                 per-survey YAML + hldet_colformat01.txt
-vendor/pyradon/         pinned pyradon clone (GPLv3; SHA in PATCHES.md)
-tests/test_units.py     unit tests
+tests/test_units.py     unit tests (incl. native-FRT correctness + detection)
 REPORT.md               full validation report
 ```
 
 ## License & citation
 
-GPLv3 (see [`LICENSE`](LICENSE)) — required because the vendored `pyradon`
-(`vendor/pyradon`, © 2018 Guy Nir) is GPLv3. If you use this tool, please cite
-**Nir et al. 2018, AJ 156, 229** (the Fast Radon Transform) and
-**Veres et al. 2012, PASP 124, 1197** (the trailed-source model). The detection/
-measurement modules were lifted from the validated `ztf_streak` pipeline.
+Currently **GPL-3.0-or-later** (see [`LICENSE`](LICENSE), [`NOTICE`](NOTICE)). The
+detector is our own clean-room FRT (`streakradon/frt.py`); no third-party
+copyleft code remains, so the project may be relicensed at the authors'
+discretion — see [`LICENSING.md`](LICENSING.md). If you use this tool, please cite
+**Nir et al. 2018, AJ 156, 229** (the Fast Radon Transform algorithm) and
+**Veres et al. 2012, PASP 124, 1197** (the trailed-source model).

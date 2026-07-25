@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """streak-radon: unified command-line interface.
 
 Subcommands
@@ -224,9 +226,9 @@ def _demo_link(det_csv, img_txt, out_dir, args):
 
 def cmd_selftest(args):
     """Smoke test: first-party unit tests AND the integration test, which drives
-    the vendored pyradon FRT end-to-end (synthetic mover -> detection). The
-    integration test is what catches a broken clone (missing vendored pyradon):
-    unit tests alone pass even when pyradon is absent, so both must run."""
+    the full detection chain end-to-end (native FRT -> synthetic mover ->
+    detection). The integration test catches breakage the unit tests can miss, so
+    both run by default."""
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     import subprocess
     suites = ["test_units.py", "test_integration.py"]
@@ -291,7 +293,7 @@ def build_parser():
 
     t = sub.add_parser("selftest", help="run smoke tests (unit + integration/FRT)")
     t.add_argument("--quick", action="store_true",
-                   help="unit tests only; skip the pyradon-FRT integration test")
+                   help="unit tests only; skip the end-to-end integration test")
     t.set_defaults(func=cmd_selftest)
     return p
 

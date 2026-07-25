@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """hldet_colformat01 CSV writer for heliolinx make_trailed_tracklets.
 
 Column order (verified against make_trailed_tracklets.cpp colformat reader and

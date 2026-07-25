@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Real/bogus vetting for streak candidates.
 
 Base cuts lifted from ztf_streak/bin/rb_features.py (validated on ZTF), extended

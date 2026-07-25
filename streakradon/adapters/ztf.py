@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """ZTF adapter: IRSA scimrefdiffimg (+ mskimg, + sci header for timing) ->
 DiffExposure. The diff is already reference-subtracted; we only whiten.
 

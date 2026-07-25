@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Integrated matched-filter SNR at a single candidate line.
 
 The significance statistic of the pipeline. pyradon's absolute SNR is erratic on

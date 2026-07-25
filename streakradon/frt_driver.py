@@ -1,34 +1,16 @@
-#!/usr/bin/env python
-"""Drive the vendored pyradon Finder over a full frame: square tiling, manual
-per-tile invocation, candidate extraction in global coordinates, union-find dedup.
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
+"""Drive streak detection over a full frame: square tiling, per-tile Fast Radon
+Transform (streakradon.frt, our own clean-room FRT -- no third-party code),
+candidate extraction in global coordinates, union-find dedup.
 
-Why manual: pyradon's convenience input() path assumes square images and its
-absolute SNR normalization is unreliable on real survey diffs. We feed
-PRE-WHITENED tiles (image/sqrt(variance), masked px = 0) with scalar variance
-1.0, set pars.min_length to a PHYSICAL value (default 8 -- the library default
-of 32 gates out the folding where short-trail SNR peaks; benchmarked 2026-07 on
-a000001: SNR 6.3 -> 19.0), and treat pyradon's (L, SNR) as hints only. Every
-candidate is re-scored downstream with mf_snr and re-measured by the Veres fit.
+We feed PRE-WHITENED tiles (image/sqrt(variance), masked px = 0), set min_length
+to a PHYSICAL value (default 8 -- 32 gates out the folding where short-trail SNR
+peaks; benchmarked 2026-07 on a000001: SNR 6.3 -> 19.0), and treat FRT (L, SNR)
+as hints only: every candidate is re-scored downstream with mf_snr and
+re-measured by the Veres fit.
 """
 import numpy as np
-
-from . import import_pyradon
-
-
-def make_finder(psf_sigma_px, min_length=8, threshold=5.0, num_iterations=5):
-    Finder = import_pyradon()
-    f = Finder()
-    f.pars.use_short = True
-    f.pars.min_length = int(min_length)
-    f.pars.threshold = float(threshold)
-    f.pars.num_iterations = int(num_iterations)
-    f.pars.use_sections = False       # we tile ourselves (squares, overlap)
-    f.pars.use_exclude = False        # do not blank the tile center bands
-    f.pars.use_show = False
-    f.pars.verbosity = 0
-    f.data.variance = 1.0             # pre-whitened input
-    f.data.psf = float(psf_sigma_px)
-    return f
 
 
 def tile_grid(shape, tile=1024, overlap=128):
@@ -46,42 +28,46 @@ def tile_grid(shape, tile=1024, overlap=128):
 
 
 def detect_streaks(whitened, psf_sigma_px, tile=1024, overlap=128,
-                   min_length=8, threshold=5.0, finder=None):
-    """Run FRT streak detection on a pre-whitened image.
+                   min_length=8, threshold=5.0, finder=None, fast_suppress=True,
+                   backend="native"):
+    """Run FRT streak detection on a pre-whitened image (streakradon.frt).
 
     whitened : 2D float array, image/sqrt(var); masked/bad pixels should be 0
-               (or NaN -- converted to 0 after mean subtraction inside pyradon).
+               (or NaN -- converted to 0 before the transform).
+    backend  : 'native' only; 'pyradon' was removed (see LICENSING.md).
+    finder, fast_suppress : accepted for backward compatibility, ignored.
     Returns list of candidate dicts:
       x, y   : streak center, global pixel coords
       pa_rad : pixel-frame angle (atan2 convention, mod pi)
-      L_frt  : pyradon length hint (px)
-      snr_frt: pyradon SNR hint
+      L_frt  : FRT length hint (px)
+      snr_frt: FRT SNR hint
       x1,y1,x2,y2 : endpoints, global
     """
-    if finder is None:
-        finder = make_finder(psf_sigma_px, min_length, threshold)
+    if backend != "native":
+        raise ValueError(
+            f"backend {backend!r} unavailable: the pyradon backend was removed; "
+            "streakradon uses its own frt.py. Use backend='native'.")
+    return _detect_native(whitened, tile, overlap, min_length, threshold)
+
+
+def _detect_native(whitened, tile=1024, overlap=128, min_length=8, threshold=5.0):
+    """Tile the frame, run streakradon.frt.detect per tile, lift candidates to
+    global coords, dedup (x, y, pa_rad, L_frt, snr_frt, x1..y2, tile)."""
+    from . import frt
     H, W = whitened.shape
     cands = []
     for (y0, x0) in tile_grid((H, W), tile, overlap):
         sub = np.array(whitened[y0:y0 + tile, x0:x0 + tile], dtype=float, copy=True)
-        if not np.isfinite(sub).any() or np.count_nonzero(sub) < 100:
+        finite = np.isfinite(sub)
+        if np.count_nonzero(sub[finite]) < 100:
             continue
-        sub[~np.isfinite(sub)] = 0.0
-        finder.clear()  # resets streaks list + section corner + best_snr
-        finder.data._current_section_corner = (y0, x0)
-        proc = finder.preprocess(sub)
-        finder.scan_thresholds(proc)
-        for s in finder.streaks:
-            try:
-                x1, y1, x2, y2 = float(s.x1f), float(s.y1f), float(s.x2f), float(s.y2f)
-            except TypeError:
-                continue
-            pa = np.arctan2(y2 - y1, x2 - x1) % np.pi
+        sub[~finite] = 0.0
+        for c in frt.detect(sub, min_length=min_length, threshold=threshold):
             cands.append(dict(
-                x=0.5 * (x1 + x2), y=0.5 * (y1 + y2), pa_rad=float(pa),
-                L_frt=float(s.L) if s.L is not None else np.hypot(x2 - x1, y2 - y1),
-                snr_frt=float(s.snr), x1=x1, y1=y1, x2=x2, y2=y2,
-                tile=(y0, x0)))
+                x=c["x"] + x0, y=c["y"] + y0, pa_rad=c["pa_rad"],
+                L_frt=c["length"], snr_frt=c["snr"],
+                x1=c["x1"] + x0, y1=c["y1"] + y0,
+                x2=c["x2"] + x0, y2=c["y2"] + y0, tile=(y0, x0)))
     return dedup_candidates(cands)
 
 

@@ -16,7 +16,7 @@ dependencies = [
     "scipy>=1.7",
     "astropy>=5.0",
     "pyyaml>=5.3",
-    "matplotlib>=3.4",   # required at import time by the vendored pyradon Finder; also QA plots
+    "matplotlib>=3.4",   # QA plots / mosaics
 ]
 
 [project.optional-dependencies]
@@ -29,9 +29,9 @@ streak-radon = "streakradon.cli:main"
 Homepage = "https://github.com/rhstrauss/radon-streak"
 
 # Install from a clone with `pip install -e .` (editable): the repo tree stays in
-# place, so (a) the vendored, pinned pyradon (GPLv3; vendor/pyradon) that
-# streakradon.import_pyradon adds to sys.path is found, and (b) the survey configs
-# under config/ resolve via streakradon.config (which locates them relative to the
-# package). config/, vendor/, tests/ ship in the sdist via MANIFEST.in. See PATCHES.md.
+# place so the survey configs under config/ resolve via streakradon.config (which
+# locates them relative to the package). config/ and tests/ ship in the sdist via
+# MANIFEST.in. Detection uses the in-package clean-room FRT (streakradon/frt.py);
+# no third-party detection code. See LICENSING.md.
 [tool.setuptools]
 packages = ["streakradon", "streakradon.adapters"]

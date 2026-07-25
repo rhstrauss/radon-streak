@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Variance maps, masks, and pre-whitening.
 
 The FRT/matched-filter significance model assumes unit Gaussian noise, so the

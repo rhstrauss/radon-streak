@@ -1,0 +1,41 @@
+streak_radon / streakradon
+Copyright (C) 2026 Ryder H. Strauss
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See the LICENSE file for the full text.
+
+================================================================================
+Attribution and third-party components
+================================================================================
+
+1. Fast Radon Transform -- ALGORITHM (public-domain mathematics)
+   The recursive-doubling discrete Radon transform implemented in
+   streakradon/frt.py is an INDEPENDENT, clean-room implementation written from
+   the published algorithm:
+     * Gotz, W. A. & Druckmuller, H. J. (1996), "A fast digital Radon
+       transform", Pattern Recognition 29, 711.
+     * Brady, M. L. (1998), "A fast discrete approximation algorithm for the
+       Radon transform", SIAM J. Comput. 27, 107.
+     * Nir, G., Ofek, E. O., Ben-Ami, S. & Zackay, B. (2018), "Optimal and
+       efficient streak detection in astronomical images", AJ 156, 229.
+   It was implemented from the mathematics/equations in these papers and is NOT
+   derived from any existing source implementation. Algorithms are not
+   copyrightable; this file is an original work (c) 2026 Ryder H. Strauss.
+   Please cite Nir et al. (2018) in scientific use.
+
+2. pyradon -- REMOVED
+   Earlier revisions vendored a pinned copy of github.com/guynir42/pyradon
+   (Copyright (C) 2018 Guy Nir, GPLv3) as the detection backend. It has been
+   REMOVED: streakradon now detects with its own clean-room frt.py (item 1). No
+   third-party GPL source remains in the distribution. The Nir et al. (2018)
+   algorithm reference is retained above as a scientific citation. See
+   LICENSING.md for the (git) history and the relicensing note.
+
+3. Trailed-source forward fit
+   streakradon/trail_fit.py implements the line-convolved-Gaussian trail model of
+   Veres, P. et al. (2012), "Improved asteroid astrometry and photometry with
+   trail fitting", PASP 124, 1197. Original implementation (c) 2026 R. H. Strauss.
+
+The heliolinx pipeline this feeds is a separate work with its own license.

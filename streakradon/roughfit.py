@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Rough trail measurement from the FRT+MF refine, with APPROXIMATE errors --
 the survey-scale fast path (no per-candidate Veres fit).
 

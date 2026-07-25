@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Survey-agnostic adapter: turn an ALREADY-DIFFERENCED FITS image into a
 DiffExposure using a small header-keyword map in the config.
 

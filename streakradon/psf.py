@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Effective-PSF sigma from field stars (no SEEING header key on CSS arch frames).
 
 The arch images are high-pass filtered and possibly PSF-convolved, so the stars

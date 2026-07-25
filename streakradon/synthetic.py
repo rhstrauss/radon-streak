@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Self-contained synthetic trailed-mover sequence -- NO external data required.
 
 Builds a short, rapid-cadence sequence of difference images (pure-noise

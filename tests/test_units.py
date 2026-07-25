@@ -11,8 +11,9 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from streakradon import hldet_io                             # noqa: E402
-from streakradon.frt_driver import tile_grid, dedup_candidates  # noqa: E402
+from streakradon.frt_driver import tile_grid, dedup_candidates, detect_streaks  # noqa: E402
 from streakradon.mf_snr import trail_kernel, mf_snr_at       # noqa: E402
+from streakradon import frt                                  # noqa: E402
 
 
 def test_hldet_column_order():
@@ -76,9 +77,49 @@ def test_mf_snr_recovers_injected():
     print(f"test_mf_snr_recovers_injected OK (snr={snr:.1f})")
 
 
+def test_frt_native_exact():
+    """The clean-room FRT recursion equals a direct sum over its own digital
+    lines -- the proof of correctness (independent of any reference impl)."""
+    rng = np.random.default_rng(0)
+    for (H, W) in [(16, 16), (13, 32)]:
+        img = rng.standard_normal((H, W))
+        R, row0 = frt.radon_pos(img)
+        W2 = R.shape[0]
+        for T in (0, 1, W2 // 2, W2 - 1):
+            for k in (row0, row0 + H // 2):
+                y0 = k - row0
+                s = sum(img[r, c] for (r, c) in frt.brady_line(T, y0, W2)
+                        if 0 <= r < H and 0 <= c < W)
+                assert abs(s - R[T, k]) < 1e-9
+    print("test_frt_native_exact OK")
+
+
+def test_frt_native_detect():
+    """native detect_streaks backend finds a short streak in noise with the
+    right center and PA, via the multi-length folding path."""
+    rng = np.random.default_rng(5)
+    N = 256
+    img = rng.standard_normal((N, N))
+    cx, cy, pa_deg, L = 150.0, 120.0, 35.0, 34
+    th = np.radians(pa_deg)
+    for t in np.linspace(-L / 2, L / 2, 2 * L):
+        xx = int(round(cx + t * np.cos(th))); yy = int(round(cy + t * np.sin(th)))
+        img[yy, xx] += 1.6
+    cands = detect_streaks(img, 1.4, tile=256, overlap=0,
+                           min_length=8, threshold=6.0, backend="native")
+    near = [c for c in cands if np.hypot(c["x"] - cx, c["y"] - cy) < 8]
+    assert near, f"no candidate near injected streak among {len(cands)}"
+    best = max(near, key=lambda c: c["snr_frt"])
+    dpa = abs(np.degrees(best["pa_rad"]) - pa_deg) % 180
+    assert min(dpa, 180 - dpa) < 12
+    print(f"test_frt_native_detect OK ({len(cands)} cands, snr={best['snr_frt']:.1f})")
+
+
 if __name__ == "__main__":
     test_hldet_column_order()
     test_tile_grid()
     test_dedup()
     test_mf_snr_recovers_injected()
+    test_frt_native_exact()
+    test_frt_native_detect()
     print("ALL UNIT TESTS PASSED")

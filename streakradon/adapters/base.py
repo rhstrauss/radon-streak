@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Adapter contract: every survey adapter produces DiffExposure objects; the
 detection/measurement/vetting/output stages are survey-agnostic."""
 from dataclasses import dataclass, field

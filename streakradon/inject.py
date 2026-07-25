@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Synthetic trail injection -- one injector, three consumers (efficiency
 grids, threshold/FP calibration, end-to-end linking test).
 

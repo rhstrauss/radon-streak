@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Trailed-source forward-model fit (Veres et al. 2012, PASP 124, 1197).
 
 Model = uniform line source (half-length h) convolved with a Gaussian PSF (sigma):

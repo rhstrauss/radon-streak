@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Leave-one-out median templates over a registered exposure stack.
 
 For exposure i the template is the nanmedian of the OTHER frames: zero

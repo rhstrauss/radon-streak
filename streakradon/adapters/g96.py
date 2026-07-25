@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """G96 (Catalina Sky Survey) adapter: arch.fz 4-visit sequence -> DiffExposures.
 
 The arch frames are high-pass filtered survey images with a valid TAN WCS (the

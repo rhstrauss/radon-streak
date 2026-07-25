@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """Config loading for streak_radon.
 
 Survey parameters live in YAML under the repo `config/` directory (shipped with

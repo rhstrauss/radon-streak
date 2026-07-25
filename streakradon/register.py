@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryder H. Strauss
 """WCS-to-WCS registration without the reproject package.
 
 For each target pixel grid (reference frame), compute the source-frame pixel
