@@ -383,3 +383,86 @@ and a further reason to treat both bounds as bounds (§2.1).
    throw everything away, so the threshold is only defensible against a recall number.
    This is the one measurement still missing in both directions.
 3. Only then launch Sep–Dec.
+
+### 7.1 …and `mf_snr` turns out not to be the lever at all
+
+The re-run with raw `mf_snr` captured (`ztf_fpcal` 37905291 + `ztf_realcal` 37905290,
+same 40 units, `FITJSON=1`) gives purity ~12% (real 404, negated 355) and this:
+
+```
+FP mf_snr : min 6.87  p50 124.17  p90 666.38  p99 1662.54  max 2427.67
+
+mf_snr_min needed for a target FP rate:
+  1.00 FP/unit : >=  627.71      0.20 FP/unit : >= 1391.20
+  0.50 FP/unit : >=  894.03      0.10 FP/unit : >= 1638.74
+
+real excess by mf_snr decile (real_n - fp_n, equal units):
+    6.32-  24.75: real 37  fp~38  excess  -1
+   24.75-  51.08: real 38  fp~38  excess  +0
+   51.08-  69.78: real 45  fp~31  excess +14
+   69.78-  97.34: real 44  fp~32  excess +12
+   97.34- 122.42: real 41  fp~35  excess  +6
+  122.42- 156.20: real 42  fp~34  excess  +8
+  156.20- 217.83: real 42  fp~34  excess  +8
+  217.83- 338.96: real 42  fp~34  excess  +8
+  338.96- 582.29: real 41  fp~35  excess  +6
+  582.29-3339.40: real 32  fp~44  excess -12
+```
+
+**Raising `mf_snr_min` will not fix this.** The false positives are not low-SNR noise
+— they are high-SNR structured residuals whose `mf_snr` distribution is
+indistinguishable from the real population's. The real excess is flat at ~+8 per
+decile and *negative* in the top decile, so any cut removes real detections at
+essentially the same rate as artifacts. The 627.71 needed for 1 FP/unit would leave
+almost nothing.
+
+So `mf_snr` is **not a discriminant on ZTF diffs**, joining `det_qual` (saturated at
+1.00) and the `sigmag` proxy (p50 = 134 on pure FPs). That reframes the blocker: this
+is not a threshold to tune, it is a **missing real-bogus classifier** for the trailed
+ZTF path. Note the existing ml-clean ZTF catalog achieves its −82% false links using
+ZTF's *own* RB `ml_score >= 0.8`; this detector has no equivalent.
+
+Three ways forward, in rough order of cost:
+
+1. **Let linking do the rejection.** heliolinc demands consistent motion across ≥3
+   nights, which is a far stronger artifact filter than any per-detection cut. This is
+   what the raw-vs-ml-clean comparison quantifies as *expensive but workable* (−70%
+   RAM, −82% false links from cleaning first). Cheapest path: run a short window
+   end-to-end and see whether purify's output is usable.
+2. **Require multi-exposure units**, so the repetition filter can actually run. It is
+   the only per-detection purity cut that works on structured residuals, and it is
+   currently unavailable for the 47% of units with a single exposure. Costs ~half the
+   sky, buys real purity.
+3. **Train an RB classifier on postage stamps** (`stamps.py`, `STAMPS=1` already
+   exists and was built for exactly this on the CSS side). This is the real fix and
+   the one that makes the full 84.5 TB worth spending.
+
+### 7.2 The MPC cross-check has NO POWER for ZTF — do not use it here
+
+`mpcat_check` over the pilot's 537 detections returned **0 already-in-MPC, 100%
+"genuinely new"**. That number is **meaningless**, and it is worth writing down why so
+nobody quotes it.
+
+A direct census of `mpcat.bin` over the pilot's own MJD window
+(records 447074849–447146453, MJD 60555.147–60555.497) finds **71,604 catalog records
+and ZERO from I41**:
+
+```
+W68 43018   F52 12971   F51 8790   G96 3300   T08 1707   W84 1192
+W24   210   T05   137   H21   53   I52   42   T14   34   H01   32
+```
+
+With `-matchobscode 1` there was nothing for a ZTF detection to match, so the test was
+**null by construction** — exactly the trap the CSS work hit with 703, where a pilot
+night contained zero 703 records and could not be validated astrophysically. Relaxing
+to `-matchobscode 0` does not rescue it either: a real asteroid would have to have been
+measured by a *different* observatory within `timerad` (10 s), which essentially never
+happens.
+
+**Measurement-existence matching cannot validate ZTF on this catalog.** The reality
+check has to be **orbit-based attribution** — propagate known orbits to our epochs and
+match positions (the `attribute.py` / `stage1c_attribute.py` machinery from the bigrun
+vetting chain), not `mpcat_check`.
+
+The ~12% purity conclusion in §7/§7.1 stands regardless: it rests on the negation
+control, which needs no external catalog.
