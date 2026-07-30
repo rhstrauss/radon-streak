@@ -257,18 +257,20 @@ wastes the allocation. Two consequences:
    `perf/preprocess-vet` branch**, not anything GPU-side — 64% of the cost is in
    exactly the stages it targets.
 
-Projected cost for Sep–Dec (2.33 M units at 72 s = **~46,600 GPU-hours** serial):
+Cost for Sep–Dec. `NWORK=4` was then **measured** on pilot `ztf_pilot_a`
+(job 37902404): 41 units / 77 quadrant-exposures in 17m13s = **13.4 s per exposure**
+against ~41.9 s serial, i.e. a **3.1× speedup** (not the naive 4×, as expected once
+four workers contend for one GPU and the same memory bandwidth).
 
-| | CONC=64 | CONC=150 |
+| | CONC=16 | CONC=64 |
 |---|---|---|
-| NWORK=1 | ~30 days | ~13 days |
-| NWORK=4 (if it scales) | **~8 days** | ~3.5 days |
+| NWORK=1 (~41.9 s/exposure) | ~97 days | ~24 days |
+| **NWORK=4 (measured 13.4 s/exposure)** | ~31 days | **~7.8 days** |
 
-Against the ~5.1-day download floor, NWORK=4 puts compute and download in the same
-range — i.e. a well-balanced pipeline at roughly a week for Sep–Dec, and about
-another 3 days for Jun+Jul. The NWORK=4 scaling factor is being measured by pilot
-`ztf_pilot_a` (job 37902230, 64 units); the table above is a projection until it
-lands.
+Jun+Jul adds ~3.4 days on the same settings. Against the ~5.1-day download floor,
+`CONC=64 NWORK=4` is a reasonably balanced pipeline: ~256 workers, but each spends
+only ~21% of its time downloading, so **average active IRSA streams ≈ 54** — polite —
+while delivering ~4.8 exposures/s.
 
 Detection density: 3.25 per quadrant-exposure → **~10.4 M detections for Sep–Dec**,
 comparable per-mosaic to G96's 104/image. 23% of pilot rows carry `mag = nan`
@@ -278,7 +280,7 @@ default is to keep them.
 ## 6. Open items
 
 - [x] GPU throughput per unit — measured, §5. `SEC_PER_UNIT = 75`.
-- [ ] Confirm the `NWORK=4` scaling factor (pilot `ztf_pilot_a`, job 37902230).
+- [x] `NWORK=4` scaling factor — measured 3.1x (pilot `ztf_pilot_a`, job 37902404).
 - [ ] Negated-diff FP calibration → freeze `mf_snr_min`.
 - [ ] Recall gate: inject trails into ZTF diffs and confirm the mask fix actually
       moves recall, so the improvement is quantified rather than argued.
