@@ -152,9 +152,10 @@ def main():
           f"quadrant-exposures={n_exp}")
     print(f"  rejected: infobits!=0 {n_rej_bits}, seeing>{args.max_seeing}\" "
           f"{n_rej_seeing}")
-    # 9.4 MB diff + 18.9 MB mask per quadrant-exposure; sciimg is NOT needed
-    # because the diff header carries SHUTOPEN/SHUTCLSD.
-    print(f"  download volume ~= {n_exp * 28.3 / 1e6:.2f} TB "
+    # Measured mean 26.3 MB per quadrant-exposure (diff ~7.4 MB + mask 18.9 MB).
+    # sciimg is NOT needed because the diff header carries SHUTOPEN/SHUTCLSD,
+    # which is what keeps this from being 66 MB per exposure.
+    print(f"  download volume ~= {n_exp * 26.3 / 1e6:.2f} TB "
           f"(diff+mask only; sciimg avoided)")
     print(f"  -> {outp}")
     if failed:

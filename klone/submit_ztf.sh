@@ -18,20 +18,37 @@
 #    TIME/SEC_PER_UNIT. process_ztf_unit.sh is idempotent, so a task that is
 #    preempted or runs out of time resumes at the first unfinished unit.
 #
-# 3. DISK. ZTF Sep-Dec is ~91 TB of diffs; /gscratch/astro has ~2.5 TB free.
+# 3. DISK. ZTF Sep-Dec is ~84.5 TB of diffs+masks; /gscratch/astro has ~2.5 TB free.
 #    STREAM=1 (the DEFAULT here, unlike the CSS scripts) deletes each unit's
 #    frames as soon as its trail CSV lands. Turning it off will fill the fileset.
 set -uo pipefail
 SR=${SR:-/gscratch/astro/rstrau/streak_radon_ztf}
 : "${TAG:?set TAG (work/<TAG>/<TAG>_units.txt must exist)}"
-CONC=${CONC:-64}                 # also the IRSA download concurrency -- be polite
+CONC=${CONC:-64}                 # array concurrency; also the IRSA stream count
 TIME=${TIME:-5:00:00}
+# Unit workers INSIDE one task, sharing the task's single GPU. Measured on an A40:
+# a unit costs ~72 s steady-state, of which GPU CLEAN detect is only ~5 s per
+# exposure (~11%) while CPU preprocess+vet is ~64% and download ~20% -- so the GPU
+# is idle ~89% of the time and one worker per GPU wastes the allocation. Running
+# NWORK units concurrently overlaps one worker's CPU/network with another's GPU
+# work. NWORK=1 restores strictly serial behaviour.
+NWORK=${NWORK:-4}
+CPUS=${CPUS:-16}                 # >= NWORK * threads-per-worker
+THREADS=${THREADS:-4}
 STREAM=${STREAM:-1}
 STAMPS=${STAMPS:-0}
 STAMP_SIZE=${STAMP_SIZE:-64}
 STAMP_PLANE=${STAMP_PLANE:-diff}
 SEC_PER_UNIT=${SEC_PER_UNIT:-60}
 CFG=${CFG:-ztf}
+# ONE partition: "Multiple partition job submissions are not supported by Klone"
+# -- sbatch warns and silently uses the first, so a list is a footgun, not a
+# fallback. Default is ckpt-g2 (what the CSS campaigns use: homogeneous modern
+# L40/L40S/H200). Use PART=ckpt-all when ckpt-g2 is starved -- it is a GPU
+# superset (adds a40/a100/2080ti/rtx6k/p100), which is how the ZTF smoke job got
+# scheduled at priority 2e-5 behind the CSS arrays, at the cost of landing on a
+# possibly much slower GPU.
+PART=${PART:-ckpt-g2}
 
 W=$SR/work/$TAG
 UNITS=$W/${TAG}_units.txt
@@ -55,8 +72,15 @@ fi
 # --- constraint 2: what one task can finish inside TIME ----------------------
 hh=${TIME%%:*}; rest=${TIME#*:}; mm=${rest%%:*}
 SECS=$(( 10#$hh * 3600 + 10#$mm * 60 ))
-PACK_MAX=$(( SECS / SEC_PER_UNIT ))
-[ "$PACK_MAX" -lt 1 ] && PACK_MAX=1
+# NWORK units run concurrently, so a task gets through ~NWORK x more units in TIME.
+PACK_MAX=$(( SECS * NWORK / SEC_PER_UNIT ))
+if [ "$PACK_MAX" -lt 1 ]; then
+  # Not even ONE unit fits in TIME. Clamping silently to 1 would submit anyway and
+  # every task would hit the walltime -- so say so and stop.
+  echo "ABORT: SEC_PER_UNIT=$SEC_PER_UNIT exceeds TIME=$TIME ($SECS s);"
+  echo "       not even one unit can finish per task. Raise TIME or re-measure."
+  exit 1
+fi
 
 PACK_MIN=$(( (N + BUDGET - 1) / BUDGET ))          # smallest pack that fits the cap
 if [ "${PACK:-auto}" = auto ]; then
@@ -81,25 +105,24 @@ if [ "$PACK" -gt "$PACK_MAX" ]; then
   exit 1
 fi
 
-echo "  conc=$CONC stream=$STREAM stamps=$STAMPS cfg=$CFG"
-echo "  est download: $(python3 -c "print(f'{$N*1.7*28.3/1e6:.2f} TB')" 2>/dev/null || echo '?')"
+echo "  conc=$CONC nwork=$NWORK cpus=$CPUS stream=$STREAM stamps=$STAMPS cfg=$CFG"
+echo "  est download: $(python3 -c "print(f'{$N*1.72*26.3/1e6:.2f} TB')" 2>/dev/null || echo '?')"
 
 JID=$(sbatch --parsable \
   --array=1-${NTASKS}%${CONC} \
   --job-name=sr_${TAG} \
-  --account=astro --partition=ckpt-g2 \
-  --gres=gpu:1 --cpus-per-task=8 --mem=48G --time=$TIME --requeue \
+  --account=astro --partition=$PART \
+  --gres=gpu:1 --cpus-per-task=$CPUS --mem=64G --time=$TIME --requeue \
   --output=$W/logs/array_%a.out \
   --wrap="export STREAKRADON_GPU_CLEAN=1 STREAKRADON_CLEAN_ITER=10 \
-OMP_NUM_THREADS=8 OPENBLAS_NUM_THREADS=8 MKL_NUM_THREADS=8 \
+OMP_NUM_THREADS=$THREADS OPENBLAS_NUM_THREADS=$THREADS MKL_NUM_THREADS=$THREADS \
 SR=$SR CFG=$CFG STREAM=$STREAM STAMPS=$STAMPS STAMP_SIZE=$STAMP_SIZE \
 STAMP_PLANE=$STAMP_PLANE; \
 lo=\$(( (\${SLURM_ARRAY_TASK_ID} - 1) * $PACK + 1 )); \
 hi=\$(( lo + $PACK - 1 )); \
-sed -n \"\${lo},\${hi}p\" $UNITS | while read -r night field ccd qid nexp ffds filts; do \
-  [ -z \"\$filts\" ] && continue; \
-  bash $SR/klone/process_ztf_unit.sh \$night \$field \$ccd \$qid \$ffds \$filts $W; \
-done")
+sed -n \"\${lo},\${hi}p\" $UNITS | \
+  xargs -P $NWORK -L 1 bash -c \
+    'bash $SR/klone/process_ztf_unit.sh \"\$1\" \"\$2\" \"\$3\" \"\$4\" \"\$6\" \"\$7\" $W' _")
 rc=$?
 if [ $rc -ne 0 ] || [ -z "$JID" ]; then
   echo "SUBMIT FAILED (rc=$rc)"; exit 1

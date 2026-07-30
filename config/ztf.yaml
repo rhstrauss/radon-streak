@@ -54,13 +54,20 @@ detect:
 vet:
   axis_blanket: true         # ZTF diffs ARE detector-artifact dominated (validated cut)
   len_min_arcsec: 8.0        # = 7.9 px. Sets the trailed/point-source boundary at
-                             # 8.0"/30 s = 960"/hr = 6.4 deg/day. Deliberately ABOVE
-                             # the 4.8 px MF grid floor (4.86" on ZTF), so ZTF is
-                             # largely immune to the trail_len floor artifact that
-                             # affects 51.7% of G96 detections. Lowering this to
+                             # 8.0"/30 s = 960"/hr = 6.4 deg/day. Lowering this to
                              # ~5.0 would admit the 3.9-6.4 deg/day band at the cost
-                             # of floor contamination + a much larger FP volume;
-                             # do that only with a density measurement in hand.
+                             # of a much larger FP volume; do that only with a
+                             # density measurement in hand.
+                             # NOTE: this gate does NOT make ZTF immune to the
+                             # trail_len floor artifact, it RELOCATES it. Because
+                             # min_length is 8 px and this gate is 8.0", the lowest
+                             # length that can be both searched and survive vetting
+                             # is the ladder's 8-px rung = 8.10" -- and a pilot unit
+                             # put 7/13 detections (54%) at exactly 8.10", the same
+                             # order as G96's 51.7% at 7.3". So 8.10" on I41 is a
+                             # BOUND, not a measurement; merge_catalog.py carries
+                             # FLOOR_ARCSEC["I41"] = 8.2 so its floor policy fires
+                             # (computing 4.8 px = 4.86" would never trigger).
   len_max_arcsec: 300.0      # the MF ladder tops out at 192 px = 194.3" on ZTF, so
                              # a reported length at/above that is a LOWER BOUND, not
                              # a measurement (merge_catalog's --ceil-policy).
