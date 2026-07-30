@@ -272,10 +272,34 @@ Jun+Jul adds ~3.4 days on the same settings. Against the ~5.1-day download floor
 only ~21% of its time downloading, so **average active IRSA streams ≈ 54** — polite —
 while delivering ~4.8 exposures/s.
 
-Detection density: 3.25 per quadrant-exposure → **~10.4 M detections for Sep–Dec**,
-comparable per-mosaic to G96's 104/image. 23% of pilot rows carry `mag = nan`
-(photometry failed); `merge_catalog.py --drop-nan-mag` handles them, and the
-default is to keep them.
+### 5.1 Pilot catalog — the delivered product, validated
+
+`merge_catalog.py work/ztf_pilot_a` over the 64-unit pilot (`work/cat/ztf_pilot_a_ptsrc.csv`):
+
+```
+fields merged   : 64
+detections      : 537
+MJD range       : 60555.14719 .. 60555.49751
+policies        : floor=ptsrc ceil=inflate
+  obscode I41    n=537
+    floor 8.2"      at floor=282 (52.5%)
+    ceil  194"      at ceil =4 (0.7%)
+dropped nan mag : 0
+unparseable rows: 0
+```
+
+Two things to read off this:
+
+- **The relocated floor (§2.1) is confirmed at scale: 52.5% of 537 detections sit at
+  the 8.2″ bound**, matching the 54% seen in the single smoke unit and G96's 51.7%.
+  Without the `FLOOR_ARCSEC["I41"]` override, the policy would have passed all 282 of
+  them to `make_trailed_tracklets` as measured lengths, asserting ~6.5 deg/day motion
+  for each. That is the single most consequential fix for downstream linking.
+- The 192 px ceiling fires on 0.7%, the same order as G96's 0.1%.
+
+Density is **4.5 detections per quadrant-exposure** (537/120), so Sep–Dec projects to
+**~14 M detections**. 23% of rows carry `mag = nan` (photometry failed);
+`merge_catalog.py --drop-nan-mag` removes them and the default keeps them.
 
 ## 6. Open items
 
