@@ -129,7 +129,9 @@ G96 keeps the derived value: its floor was measured empirically at 7.3″, so
 
 ### Deliberately NOT changed without measurement
 
-- **`mf_snr_min: 6.0`** is left as-is but flagged PROVISIONAL. It came from the P6
+- **`mf_snr_min: 6.0` is now MEASURED TO BE FAR TOO PERMISSIVE — see §7. It gives
+  ~15% purity, and the campaign is HELD until it is re-set.** Original note follows.
+- **`mf_snr_min: 6.0`** was left as-is but flagged PROVISIONAL. It came from the P6
   head-to-head against the ztf_streak matched filter, which was a *recall* test
   on two exposures — it never measured the false-positive rate. G96's 11.0 has a
   negated-diff FP calibration behind it; ZTF has nothing equivalent.
@@ -317,3 +319,67 @@ Density is **4.5 detections per quadrant-exposure** (537/120), so Sep–Dec proj
       per-unit cost that dominates this campaign (§5).
 - [ ] Fix the CSS idstring truncation in `klone/merge_catalog.py` (§1.3) before
       linking the G96 week catalog.
+
+## 7. FP calibration result — the campaign is HELD
+
+The negated-diff calibration ran (job 37904599, 40 multi-exposure units) and the
+answer gates the whole campaign.
+
+```
+negated-diff FP calibration: 40 unit CSVs, 335 FALSE POSITIVES
+units processed: 40  ->  8.38 FP/unit
+```
+
+Negation was **verified to have taken effect** — 0 of 12 shared units produced
+identical detection positions between the real and negated runs.
+
+The number that matters is the like-for-like comparison on the **same 40 units**:
+
+| run | detections |
+|---|---|
+| real | 394 |
+| negated (source-free by construction) | 335 |
+
+Real detections are (artifacts + true sources); negated are (artifacts alone). So
+the **FP fraction is 0.85 — purity is only ~15%** at `mf_snr_min: 6.0`.
+
+Extrapolated, Sep–Dec's ~14 M detections would be ~12 M artifacts. That is the same
+artifact-pileup that fuels the grazer "monster core" and the −82% false-link / −70%
+RAM difference between the raw and ml-clean ZTF catalogs, so shipping it would poison
+the linker this campaign exists to feed. **`ztf_sep_a` was therefore cancelled after
+the measurement, not left running.** Nothing is lost: unit lists persist and
+`process_ztf_unit.sh` is idempotent.
+
+Note that **sane detection *density* concealed poor *purity***. 8.4 detections/unit
+looked unremarkable next to G96, and I wrongly called the calibration non-urgent on
+that basis. Density and purity are independent, and only the negated control
+separates them.
+
+### Why the first report could not set the threshold
+
+Two of the discriminants available in the delivered catalog turn out to be useless:
+
+- **`mf_snr` is not in the hldet CSV**, so the first report used
+  `2.5/ln10/sigmag` as a proxy — and that does not discriminate: pure false
+  positives measured p50 = 134, max = 2714.
+- **`det_qual` is saturated at 1.00** for false positives as well as real
+  detections (p50 = p90 = p99 = 1.00), so it cannot be used as a cut either.
+
+Fixed: `FITJSON=1` (`process_ztf_unit.sh`, plumbed through `submit_ztf.sh`) dumps
+every surviving fit including raw `mf_snr`, and `fp_report.py` now reports the FP
+`mf_snr` distribution, the threshold required for a target FP/unit rate, and — given
+`--real-fits` from the same units — the purity ratio and the real excess per `mf_snr`
+decile. Re-running as `ztf_realcal` (37905290) + `ztf_fpcal` (37905291).
+
+The FP `trail_len` distribution from the first run is itself informative: p50 = 8.11″
+(the floor) and p99 = 194.32″ (the ceiling), i.e. **false positives pile up at both
+ladder boundaries** — consistent with the floor population being artifact-dominated,
+and a further reason to treat both bounds as bounds (§2.1).
+
+### Gate before the full campaign
+
+1. Re-set `mf_snr_min` from the new threshold table.
+2. **Re-check recall at that threshold** with injected trails — purity is free if you
+   throw everything away, so the threshold is only defensible against a recall number.
+   This is the one measurement still missing in both directions.
+3. Only then launch Sep–Dec.

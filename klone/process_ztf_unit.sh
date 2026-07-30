@@ -74,6 +74,15 @@ if [ "$ngot" -eq 0 ]; then
 fi
 [ "$ngot" -eq "$NEXP" ] || echo "NOTE $UNIT: proceeding with $ngot/$NEXP exposures"
 
+# FITJSON=1 dumps every surviving fit, including the raw mf_snr that the hldet CSV
+# does not carry. Required by the FP calibration: without it the only available SNR
+# proxy is 2.5/ln10/sigmag, which does not discriminate (measured p50 134 for FPs).
+FITARG=""
+if [ "${FITJSON:-0}" = 1 ]; then
+  mkdir -p "$OUTDIR/fits"
+  FITARG="--json $OUTDIR/fits/${UNIT}.json"
+fi
+
 STAMPARG=""
 if [ "${STAMPS:-0}" = 1 ]; then
   mkdir -p "$OUTDIR/stamps"
@@ -83,7 +92,7 @@ fi
 
 $PY "$SR/bin/run_ztf_sequence.py" --config "$CFG" \
   --diffs "$FRAMEDIR/*_scimrefdiffimg.fits.fz" \
-  --out "$OUT" --imgs "$IMG" $STAMPARG > "$OUTDIR/logs/${UNIT}.log" 2>&1
+  --out "$OUT" --imgs "$IMG" $FITARG $STAMPARG > "$OUTDIR/logs/${UNIT}.log" 2>&1
 rc=$?
 dets=$(($(wc -l < "$OUT" 2>/dev/null || echo 1)-1))
 echo "$UNIT nexp=$ngot rc=$rc dets=$dets"

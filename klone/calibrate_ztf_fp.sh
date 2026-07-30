@@ -21,6 +21,12 @@
 # Pair this with the recall side (bin/gate_recall.py / measure_efficiency.py on
 # injected trails) before freezing a threshold: this script alone tells you
 # purity, not completeness.
+#
+# FIRST RESULT (2026-07-29, 40 units): 335 FPs vs 394 real detections on the SAME
+# units = 0.85 FP fraction, i.e. ~15% PURITY at mf_snr_min 6.0. The catalog is
+# ARTIFACT-DOMINATED, which sane-looking detection density (8.4/unit) concealed.
+# Set REAL_TAG=<tag> to have the report compute that purity ratio for you; the run
+# it points at must cover the same units and have been made with FITJSON=1.
 set -uo pipefail
 SR=${SR:-/gscratch/astro/rstrau/streak_radon_ztf}
 TAG=${TAG:-ztf_fpcal}
@@ -44,11 +50,12 @@ echo "FP calibration on $n negated units (from $SRC_TAG)"
 JID=$(sbatch --parsable -A astro -p $PART --gres=gpu:1 -c 8 --mem=48G \
   --time=$TIME --requeue -J sr_${TAG} -o "$W/logs/fpcal.out" \
   --wrap="export STREAKRADON_GPU_CLEAN=1 STREAKRADON_CLEAN_ITER=10 \
-STREAKRADON_NEGATE=1 OMP_NUM_THREADS=8 SR=$SR STREAM=1; \
+STREAKRADON_NEGATE=1 OMP_NUM_THREADS=8 SR=$SR STREAM=1 FITJSON=1; \
 while read -r night field ccd qid nexp ffds filts; do \
   bash $SR/klone/process_ztf_unit.sh \$night \$field \$ccd \$qid \$ffds \$filts $W; \
 done < $W/${TAG}_units.txt; \
-$SR/klone/fp_report.py --trails '$W/trails/*_trails.csv' --nunits $n")
+$SR/klone/fp_report.py --fits '$W/fits/*.json' --nunits $n \
+  ${REAL_TAG:+--real-fits '$SR/work/'$REAL_TAG'/fits/*.json'}")
 rc=$?
 if [ $rc -ne 0 ] || [ -z "$JID" ]; then echo "SUBMIT FAILED (rc=$rc)"; exit 1; fi
 echo "SUBMITTED $TAG jobid=$JID  (report lands in $W/logs/fpcal.out)"
