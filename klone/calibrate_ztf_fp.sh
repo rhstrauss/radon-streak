@@ -27,6 +27,7 @@ TAG=${TAG:-ztf_fpcal}
 NUNITS=${NUNITS:-40}
 SRC_TAG=${SRC_TAG:-ztf_smoke}          # unit list to draw the sample from
 TIME=${TIME:-4:00:00}
+PART=${PART:-ckpt-g2}   # PART=ckpt-all when ckpt-g2 is starved (GPU superset)
 
 W=$SR/work/$TAG
 SRC=$SR/work/$SRC_TAG/${SRC_TAG}_units.txt
@@ -40,7 +41,7 @@ n=$(wc -l < "$W/${TAG}_units.txt")
 [ "$n" -gt 0 ] || { echo "ABORT: no multi-exposure units in $SRC"; exit 1; }
 echo "FP calibration on $n negated units (from $SRC_TAG)"
 
-JID=$(sbatch --parsable -A astro -p ckpt-g2 --gres=gpu:1 -c 8 --mem=48G \
+JID=$(sbatch --parsable -A astro -p $PART --gres=gpu:1 -c 8 --mem=48G \
   --time=$TIME --requeue -J sr_${TAG} -o "$W/logs/fpcal.out" \
   --wrap="export STREAKRADON_GPU_CLEAN=1 STREAKRADON_CLEAN_ITER=10 \
 STREAKRADON_NEGATE=1 OMP_NUM_THREADS=8 SR=$SR STREAM=1; \
