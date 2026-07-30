@@ -1,22 +1,75 @@
-# ZTF adapter parameters (diff images from IRSA: scimrefdiffimg + mskimg)
+# ZTF adapter + pipeline parameters (IRSA scimrefdiffimg + mskimg).
+#
+# Scope note: ZTF's own alert stream already delivers POINT sources in bulk (the
+# ml-clean I41 catalog used by the ztf_atlas_neo campaign is 2.06M rows for one
+# month). What that stream misses is the TRAILED regime, so this config is tuned
+# to be complementary: a trail detector, not a general source detector. See
+# `vet.len_min_arcsec` below for the knob that sets where "trailed" begins.
 survey: ztf
 obscode: I41
-pixscale_arcsec: 1.012
+pixscale_arcsec: 1.012       # PIXSCALE, from the frame header
 exptime_s: 30.0
-timing: shutter_midpoint     # (SHUTOPEN+SHUTCLSD)/2 from science header -- validated
-                             # convention (find_orb residual 0.89" -> 0.27")
+timing: shutter_midpoint     # (SHUTOPEN+SHUTCLSD)/2 -- RESOLVED: these keywords are
+                             # present in the DIFF header, so no sciimg download is
+                             # needed (saves 37.9 MB of the 66 MB per quadrant).
+                             # OBSJD/OBSMJD are shutter-open rounded ~0.7 s early
+                             # = ~1.5" along-track at 134"/min (find_orb residual
+                             # 0.89" -> 0.27" with the midpoint).
+
+preprocess:
+  var_grid_px: 128           # empirical local-variance grid for whitening
+  # ZTF's mskimg is NOT a bad-pixel mask: bit 1 = "CONTAINS SEXTRACTOR DETECTION"
+  # and bit 11 = "CONTAINS PSF-EXTRACTED SOURCE POSITION" flag REAL SOURCES.
+  # The old `mask != 0` blanked them, i.e. blanked the trails we are hunting
+  # whenever the object was catalogued in the science frame. Measured on a real
+  # 2024-09-01 quadrant: bit 1 = 0.336%, bit 11 = 0.015%, bit 12 = 1.651%.
+  # Bit 0 (AIRCRAFT/SATELLITE TRACK) IS masked on purpose: IPAC flags only long
+  # quadrant-crossing tracks, so this removes the dominant streak contaminant
+  # without touching ~5-200" NEO trails. See adapters/ztf.py for the full table.
+  mask_bits: [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12]
 
 detect:
   tile: 1024
-  overlap: 128
-  min_length: 8
+  overlap: 128               # 3x3 = 9 tiles over a 3072x3080 quadrant
+  min_length: 8              # px = 8.1"
   frt_threshold: 5.0
-  mf_snr_min: 6.0
+  mf_snr_min: 6.0            # PROVISIONAL for survey scale. Inherited from the P6
+                             # head-to-head vs the ztf_streak matched filter, which
+                             # was a per-exposure recall test, NOT an FP calibration.
+                             # G96's 11.0 came from a negated-diff (source-free) FP
+                             # calibration; the equivalent ZTF measurement is
+                             # `klone/calibrate_ztf_fp.sh` and must be run before
+                             # trusting the FP rate at 10^6-quadrant scale.
+  # --- survey-scale performance, carried over from the validated G96 path ---
+  fast_suppress: true        # geometric capsule instead of pyradon's 4x-oversampled
+                             # full-tile model+convolve for streak blanking; same
+                             # footprint, ~5.5x on the detect stage.
+  fast: true                 # SURVEY MODE: skip the per-candidate Veres LSQ
+                             # (~917 ms each) and emit the FRT+MF rough trail.
+                             # This is the change that took blind recall from 48%
+                             # to 96% on G96 -- it also bypasses a chi2 cut that
+                             # was killing BRIGHT trails -- so it is not merely a
+                             # speed knob. Veres runs as a post-linking refinement.
 
 vet:
   axis_blanket: true         # ZTF diffs ARE detector-artifact dominated (validated cut)
-  len_min_arcsec: 8.0
-  len_max_arcsec: 300.0
+  len_min_arcsec: 8.0        # = 7.9 px. Sets the trailed/point-source boundary at
+                             # 8.0"/30 s = 960"/hr = 6.4 deg/day. Deliberately ABOVE
+                             # the 4.8 px MF grid floor (4.86" on ZTF), so ZTF is
+                             # largely immune to the trail_len floor artifact that
+                             # affects 51.7% of G96 detections. Lowering this to
+                             # ~5.0 would admit the 3.9-6.4 deg/day band at the cost
+                             # of floor contamination + a much larger FP volume;
+                             # do that only with a density measurement in hand.
+  len_max_arcsec: 300.0      # the MF ladder tops out at 192 px = 194.3" on ZTF, so
+                             # a reported length at/above that is a LOWER BOUND, not
+                             # a measurement (merge_catalog's --ceil-policy).
   chi2r_lo: 0.3
   chi2r_hi: 3.0
   sig_along_max_arcsec: 3.0
+  edge_px: 24                # ZTF quadrant edges carry subtraction residuals
+  # Cross-exposure repetition cut: static artifacts recur at the same sky position
+  # and PA across a night's revisits. Tolerances are G96's scaled to the same
+  # PIXEL tolerance (5.0" / 1.52 = 3.29 px -> 3.29 * 1.012 = 3.33").
+  repeat_rad_arcsec: 3.33
+  repeat_pa_deg: 10.0
